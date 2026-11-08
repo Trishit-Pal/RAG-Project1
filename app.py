@@ -1,45 +1,38 @@
+"""Entry point. Run with:  streamlit run app.py
+
+This file only sets up the page frame (title, .env check, sidebar) and lists
+the pages. Each page lives in its own small file in the pages/ folder.
+"""
 import streamlit as st
+
+# set_page_config must be the first Streamlit call.
 st.set_page_config(
     page_title="Enterprise RAG Assistant",
-    page_icon="Test Icon",
-    layout= "wide"
+    page_icon=":material/neurology:",
+    layout="wide",
 )
 
-st.title("Enterprise Document Intelligence")
-st.write("An AI-powered document question-answering system "
-    "using Retrieval-Augmented Generation (RAG).")
+from utils.ui import missing_settings, show_sidebar  # noqa: E402
 
-st.sidebar.title("Project Information")
-st.sidebar.write("Enterprise RAG Assistant")
+problems = missing_settings()
+if problems:
+    st.error(f"Missing settings in your .env file: {', '.join(problems)}")
+    st.stop()  # nothing below this line runs
 
-st.sidebar.subheader("System Status")
-st.sidebar.success("Application running")
+show_sidebar()
 
-st.header("Welcome")
-
-st.write(
-    "Upload your documents and ask questions "
-    "to retrieve relevant information."
-)
-
-#Document Uploader
-uploaded_files = st.file_uploader(
-    "Please upload your documents", type=["pdf", "docx", "txt"],
-    accept_multiple_files=True,
-    help="Upload one or more documents to analyze"    
-)
-
-if uploaded_files:
-    st.success(f"{len(uploaded_files)} documents uploaded successfully.")
-
-
-#Display uploaded documents
-for file in uploaded_files:
-        file_details = {
-            "filename": file.name,
-            "filetype": file.type,
-            "filesize": file.size
-        }
-        st.write("**File Details:**", file_details)
-        
-        
+navigation = st.navigation({
+    "": [
+        st.Page("pages/home.py", title="Home", icon=":material/home:", default=True),
+    ],
+    "Explore": [
+        st.Page("pages/documents_qa.py", title="Ask your documents", icon=":material/chat:"),
+        st.Page("pages/data.py", title="Explore data", icon=":material/bar_chart:", url_path="explore-data"),
+    ],
+    "Manage": [
+        st.Page("pages/upload.py", title="Upload", icon=":material/upload_file:"),
+        st.Page("pages/quality.py", title="Data quality", icon=":material/verified:"),
+        st.Page("pages/evaluation.py", title="Evaluation", icon=":material/fact_check:"),
+    ],
+})
+navigation.run()

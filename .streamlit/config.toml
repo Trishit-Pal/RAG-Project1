@@ -1,0 +1,3 @@
+[server]
+# The only place the upload size limit is set (in MB). Streamlit enforces it.
+maxUploadSize = 25

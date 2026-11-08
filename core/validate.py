@@ -5,8 +5,8 @@ import pandas as pd
 
 MIN_ROWS = 1
 MAX_NULL_RATIO = 0.5
-MIN_PDF_CHARS = 200
-MAX_PDF_PAGES = 200
+MIN_TEXT_CHARS = 200
+MAX_PAGES = 200
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 PHONE_RE = re.compile(r"\+?\d[\d -]{8,}\d")
@@ -33,14 +33,15 @@ def validate_csv(df: pd.DataFrame) -> ValidationResult:
     return ValidationResult(ok=not reasons, reasons=reasons)
 
 
-def validate_pdf_pages(pages: list[str]) -> ValidationResult:
+def validate_pages(pages: list[str]) -> ValidationResult:
+    # Used for PDF, Word and text files: all of them become a list of text pages.
     reasons = []
     if not pages:
         reasons.append("no pages")
-    elif len(pages) > MAX_PDF_PAGES:
-        reasons.append(f"more than {MAX_PDF_PAGES} pages")
-    if sum(len(p.strip()) for p in pages) < MIN_PDF_CHARS:
-        reasons.append(f"extracted text under {MIN_PDF_CHARS} chars (scanned or empty PDF)")
+    elif len(pages) > MAX_PAGES:
+        reasons.append(f"more than {MAX_PAGES} pages")
+    if sum(len(p.strip()) for p in pages) < MIN_TEXT_CHARS:
+        reasons.append(f"less than {MIN_TEXT_CHARS} characters of readable text (scanned or empty file)")
     return ValidationResult(ok=not reasons, reasons=reasons)
 
 

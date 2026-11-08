@@ -1,6 +1,6 @@
 import pandas as pd
 
-from core.validate import mask_pii, validate_csv, validate_pdf_pages
+from core.validate import mask_pii, validate_csv, validate_pages
 
 
 def test_validate_csv_accepts_clean_frame():
@@ -26,12 +26,12 @@ def test_validate_csv_rejects_duplicate_rows():
     assert any("duplicate rows" in r for r in validate_csv(df).reasons)
 
 
-def test_validate_pdf_pages_rejects_short_text():
-    assert not validate_pdf_pages(["hi"]).ok
+def test_validate_pages_rejects_short_text():
+    assert not validate_pages(["hi"]).ok
 
 
-def test_validate_pdf_pages_accepts_enough_text():
-    assert validate_pdf_pages(["x" * 300]).ok
+def test_validate_pages_accepts_enough_text():
+    assert validate_pages(["x" * 300]).ok
 
 
 def test_mask_pii_masks_email_and_phone():

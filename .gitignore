@@ -13,3 +13,6 @@ htmlcov/
 # user uploads
 data/uploads/*
 !data/uploads/.gitkeep
+
+# browser test screenshots
+.playwright-mcp/

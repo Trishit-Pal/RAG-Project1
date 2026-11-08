@@ -8,12 +8,11 @@ import re
 import sys
 import time
 
-from core.db import fetch_all, get_connection
+from core.db import bump_corpus_version, fetch_all, get_connection
 from core.generate import generate_text
 from core.retrieve import retrieve
-from core.stats import attach_filenames, get_chunks_by_ids
+from core.stats import attach_filenames, current_corpus_version, get_chunks_by_ids
 
-MIN_SIMILARITY = 0.3  # chunks below this score are treated as unrelated (judgment)
 CACHE_DAYS = 7        # cached answers expire after this many days (judgment)
 NOT_FOUND = "I don't know from the provided sources."
 
@@ -23,13 +22,19 @@ def normalize_question(question: str) -> str:
     return re.sub(r"\s+", " ", question.strip().lower())
 
 
+def cited_numbers(answer: str) -> set[int]:
+    # Which sources did the answer mention, like [1] or [3]?
+    return {int(n) for n in re.findall(r"\[(\d+)\]", answer)}
+
+
 def question_key(question: str) -> str:
     return hashlib.sha256(normalize_question(question).encode("utf-8")).hexdigest()
 
 
-def current_corpus_version() -> int:
-    rows = fetch_all("select corpus_version from corpus_state where id = 1")
-    return int(rows[0][0])
+def clear_answer_cache() -> None:
+    # Makes every saved answer stale. The question history is kept.
+    with get_connection() as conn:
+        bump_corpus_version(conn)
 
 
 def get_cached(key: str, version: int) -> dict | None:
@@ -86,11 +91,14 @@ def ask(question: str) -> dict:
     # 1. Return the saved answer if this question was already answered on this corpus.
     cached = get_cached(key, version)
     if cached:
-        chunks = attach_filenames(get_chunks_by_ids(cached["chunk_ids"]))
-        return {"answer": cached["answer"], "chunks": chunks, "cached": True, "model": cached["model"]}
+        chunks = get_chunks_by_ids(cached["chunk_ids"])
+        # If a cited passage was deleted, the [1], [2] numbers would point at the
+        # wrong sources. In that case skip the saved answer and make a fresh one.
+        if len(chunks) == len(cached["chunk_ids"]):
+            return {"answer": cached["answer"], "chunks": chunks, "cached": True, "model": cached["model"]}
 
-    # 2. Find related chunks and drop the weak matches.
-    chunks = [c for c in retrieve(question) if c["similarity"] >= MIN_SIMILARITY]
+    # 2. Find related chunks. retrieve() already drops the weak matches.
+    chunks = retrieve(question)
     if not chunks:
         # No LLM call, and nothing saved to the cache.
         return {"answer": NOT_FOUND, "chunks": [], "cached": False, "model": None}

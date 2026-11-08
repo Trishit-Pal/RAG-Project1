@@ -23,13 +23,17 @@ def embed_texts(texts: list[str],task_type: str) -> list[list[float]]:
     if not texts:
         return []
 
+    # Each text must be its own Content. A plain list of strings is read by
+    # Gemini as ONE document and returns only ONE vector for all of them.
+    contents = [types.Content(parts=[types.Part(text=t)]) for t in texts]
     response = client.models.embed_content(
-    model= MODEL,
-    contents= texts,
-    config= types.EmbedContentConfig(
-        output_dimensionality = DIM,
-        task_type= task_type,
-    ),
+        model=MODEL,
+        contents=contents,
+        config=types.EmbedContentConfig(output_dimensionality=DIM, task_type=task_type),
     )
 
-    return [_12_normalize(e.values) for e in response.embeddings]
+    vectors = [_12_normalize(e.values) for e in response.embeddings]
+    # Never continue with missing vectors: that used to drop chunks without any error.
+    if len(vectors) != len(texts):
+        raise RuntimeError(f"Gemini returned {len(vectors)} vectors for {len(texts)} texts")
+    return vectors
