@@ -3,7 +3,7 @@ import streamlit as st
 
 from core.generate import generate_text
 from core.stats import list_documents, overview, recent_questions
-from utils.ui import empty_state, readable_documents, show_error, when
+from utils.ui import empty_state, readable_documents, show_error, show_table, when
 
 st.title("Enterprise Document Intelligence")
 st.write(
@@ -57,12 +57,7 @@ left, right = st.columns(2)
 with left:
     st.subheader("Latest documents")
     if documents:
-        st.dataframe(
-            readable_documents(documents),
-            hide_index=True,
-            column_order=["File", "Status", "Passages", "Added"],
-            width="stretch",
-        )
+        show_table(readable_documents(documents))
     else:
         st.caption("No documents yet.")
 with right:

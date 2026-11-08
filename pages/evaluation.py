@@ -7,7 +7,7 @@ import streamlit as st
 
 from core.evals import PASS_HIT_RATE, TOP_K, add_case, delete_case, list_cases, list_runs, run_eval
 from core.stats import list_sources
-from utils.ui import empty_state, show_error, when
+from utils.ui import empty_state, show_error, show_table, when
 
 st.title("Evaluation")
 st.write(
@@ -82,7 +82,7 @@ with run_tab:
         result_rows = []
         for result in outcome["results"]:
             result_rows.append({"Question": result["question"], "Result": "✅ hit" if result["hit"] else "❌ miss"})
-        st.dataframe(result_rows, hide_index=True, width="stretch")
+        show_table(result_rows)
 
     st.subheader("Past runs")
     runs = list_runs()
@@ -95,6 +95,6 @@ with run_tab:
                 "Hit rate": f"{run['metrics'].get('hit_rate', 0):.0%}",
                 "Result": "passed" if run["passed"] else "failed",
             })
-        st.dataframe(run_rows, hide_index=True, width="stretch")
+        show_table(run_rows)
     else:
         st.caption("No runs yet.")

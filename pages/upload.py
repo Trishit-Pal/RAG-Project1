@@ -9,7 +9,7 @@ import streamlit as st
 from core.ingest import API_SOURCES, SUPPORTED_TYPES, ingest_api, ingest_file
 from core.uploads import remove_upload, save_upload
 from core.validate import MAX_NULL_RATIO, MAX_PAGES, MIN_TEXT_CHARS
-from utils.ui import show_error
+from utils.ui import show_error, show_table
 
 OUTCOME_LABELS = {
     "indexed": "✅ Added",
@@ -89,7 +89,7 @@ with files_tab:
                 added += 1
             done += 1
             progress.progress(done / len(uploaded_files))
-        st.dataframe(rows, hide_index=True, width="stretch")
+        show_table(rows)
         if added:
             st.success(f"{added} file(s) added. You can now ask questions about them.")
 

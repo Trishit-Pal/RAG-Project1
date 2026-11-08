@@ -13,7 +13,10 @@ st.set_page_config(
 )
 
 from core.config import missing_settings  # noqa: E402  (imports after set_page_config)
+from utils.theme import apply_theme  # noqa: E402
 from utils.ui import show_sidebar  # noqa: E402
+
+apply_theme()  # light or dark look, chosen with the switch in the sidebar
 
 missing = missing_settings()
 if missing:

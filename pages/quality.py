@@ -7,7 +7,8 @@ import streamlit as st
 
 from core.quality import WEIGHTS
 from core.stats import list_documents, list_quality_runs, list_quarantine, list_sources
-from utils.ui import readable_documents, show_error
+from utils.charts import bar_chart, show
+from utils.ui import readable_documents, show_error, show_table, when
 
 st.title("Data quality")
 MEANINGS = {
@@ -48,29 +49,35 @@ with summary_tab:
         cells[0].metric("Average score", f"{sum(scores) / len(scores):.2f}")
         cells[1].metric("Groups scored", len(scores))
         cells[2].metric("Lowest score", f"{min(scores):.2f}")
-        chart_data = pd.DataFrame(scored).set_index("name")["quality_score"]
-        st.bar_chart(chart_data, y_label="score (1.0 is perfect)")
+        frame = pd.DataFrame(scored)[["name", "quality_score"]]
+        show(bar_chart(frame, "name", "quality_score", "Group", "Score (1.0 is perfect)"),
+             "Bar chart of the quality score of each group")
         st.caption("A low score usually means many empty cells or duplicate rows.")
 
 with runs_tab:
     if runs:
-        st.dataframe(
-            runs,
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "score": st.column_config.ProgressColumn("score", min_value=0.0, max_value=1.0, format="%.2f"),
-                "completeness": st.column_config.NumberColumn(format="%.2f"),
-                "duplicate_rate": st.column_config.NumberColumn(format="%.2f"),
-            },
-        )
+        run_rows = []
+        for run in runs:
+            run_rows.append({
+                "Group": run["source"],
+                "When": when(run["run_at"]),
+                "Rows checked": run["rows_in"],
+                "Rows passed": run["rows_passed"],
+                "Filled cells": f"{run['completeness']:.0%}",
+                "Repeated rows": f"{run['duplicate_rate']:.0%}",
+                "Score": f"{run['score']:.2f}",
+            })
+        show_table(run_rows)
     else:
         st.info("No quality checks have run yet.")
 
 with quarantine_tab:
     if quarantined:
         st.warning(f"{len(quarantined)} problem(s) found. These files were not stored.")
-        st.dataframe(quarantined, hide_index=True, width="stretch")
+        problem_rows = []
+        for problem in quarantined:
+            problem_rows.append({"File": problem["filename"], "Problem": problem["reason"], "When": when(problem["created_at"])})
+        show_table(problem_rows)
         st.caption("Fix the problem in the file, then upload it again.")
     else:
         st.success("No files have been set aside.")
@@ -89,6 +96,6 @@ with documents_tab:
         for row in rows:
             if row["Status"] in picked:
                 shown.append(row)
-        st.dataframe(shown, hide_index=True, width="stretch")
+        show_table(shown)
     else:
         st.info("No documents yet.")

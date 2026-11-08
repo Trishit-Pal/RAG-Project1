@@ -9,6 +9,7 @@ import psycopg
 import streamlit as st
 
 from core.db import fetch_all
+from utils.theme import theme_toggle
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("rag")
@@ -26,6 +27,11 @@ STATUS_LABELS = {
 def when(moment) -> str:
     # One date format for every page, like "2026-11-08 14:05".
     return f"{moment:%Y-%m-%d %H:%M}"
+
+
+def show_table(rows) -> None:
+    """A plain table for short lists. Unlike st.dataframe, it follows the light/dark look."""
+    st.table(rows, hide_index=True)
 
 
 def readable_documents(documents: list[dict]) -> list[dict]:
@@ -77,13 +83,15 @@ def database_is_up() -> bool:
 
 def show_sidebar() -> None:
     with st.sidebar:
-        st.subheader("System status")
+        st.markdown("**Enterprise RAG Assistant**")
+        st.caption("Answers from your own documents, with the sources to check them.")
+        theme_toggle()
+        st.divider()
         if database_is_up():
-            st.markdown(":green[●] Database")
+            st.caption(":green[●] Database connected")
         else:
-            st.markdown(":red[●] Database")
-        st.markdown(":green[●] Gemini key loaded")
-        st.caption("Answers only use documents you uploaded. Nothing is guessed.")
+            st.caption(":red[●] Database not reachable")
+        st.caption(":green[●] Gemini key loaded")
 
 
 def empty_state(message: str, page: str, label: str) -> None:

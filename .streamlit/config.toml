@@ -1,3 +1,15 @@
 [server]
 # The only place the upload size limit is set (in MB). Streamlit enforces it.
 maxUploadSize = 25
+
+# The light look. Dark mode is drawn on top of this by utils/theme.py, when a
+# visitor flips the "Dark mode" switch in the sidebar.
+[theme]
+base = "light"
+primaryColor = "#4F46E5"            # indigo accent: buttons, links, selected tabs
+backgroundColor = "#F6F7F9"         # page
+secondaryBackgroundColor = "#FFFFFF" # sidebar, inputs, cards
+textColor = "#1B1D23"
+borderColor = "#E3E5EA"
+baseRadius = "10px"
+font = "Instrument Sans:https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap, sans-serif"

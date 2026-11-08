@@ -9,9 +9,10 @@ import streamlit as st
 from core import dataview
 from core.parse import parse_csv
 from core.uploads import list_saved_csvs
-from utils.ui import empty_state, show_error
+from utils.charts import bar_chart, histogram_chart, line_chart, scatter_chart, show
+from utils.ui import empty_state, show_error, show_table
 
-MAX_SCATTER_POINTS = 5000  # more points than this makes the chart slow
+MAX_CHART_POINTS = 5000  # the chart library refuses more rows than this, and it gets slow
 MAX_FILTER_CHOICES = 50    # a column with more different values is not a good filter
 
 
@@ -60,15 +61,22 @@ with overview_tab:
 with columns_tab:
     overview = dataview.column_overview(df)
     st.subheader("Missing values per column")
-    st.bar_chart(overview.set_index("column")["missing_pct"], y_label="% missing")
-    st.dataframe(overview, hide_index=True, width="stretch")
+    show(bar_chart(overview, "column", "missing_pct", "Column", "% of cells empty"),
+         "Bar chart of the share of empty cells in each column")
+    show_table(overview)
     if numbers:
         st.subheader("Summary of number columns")
-        st.dataframe(df[numbers].describe().T, width="stretch")
+        # describe() gives count, average, spread, smallest, quartiles and largest per column.
+        # reset_index() turns the column names into a normal "column" column, so they show.
+        summary = df[numbers].describe().T.round(2).reset_index().rename(columns={"index": "column"})
+        show_table(summary)
     if text_columns:
         st.subheader("Most common values")
         picked = st.selectbox("Column", text_columns, key="common_column")
-        st.bar_chart(df[picked].value_counts().head(15))
+        counts = df[picked].value_counts().head(15)
+        # Simple column names for the chart; the real name goes in the axis title.
+        common = pd.DataFrame({"value": counts.index.astype(str), "rows": counts.to_numpy()})
+        show(bar_chart(common, "value", "rows", picked, "rows"), f"Bar chart of the most common values in {picked}")
 
 with charts_tab:
     DISTRIBUTION = "Distribution of a number"
@@ -85,24 +93,35 @@ with charts_tab:
         if counts.empty:
             st.info(f"'{column}' has no values to chart (every cell is empty).")
         else:
-            st.bar_chart(counts, x_label=f"{column} (middle of each bucket)", y_label="rows")
+            show(histogram_chart(counts, column), f"Column chart of how {column} values are spread")
     elif kind == AVERAGE:
         if not text_columns:
             st.info("This file has no text columns to group by.")
         else:
             group = st.selectbox("Group by", text_columns, key="group_column")
             value = st.selectbox("Average of", numbers, key="group_value")
-            st.bar_chart(dataview.group_average(df, group, value), y_label=f"average {value}")
+            averages = dataview.group_average(df, group, value)
+            frame = pd.DataFrame({"group": averages.index.astype(str), "average": averages.to_numpy()})
+            show(bar_chart(frame, "group", "average", group, f"average {value}"),
+                 f"Bar chart of average {value} for each {group}")
     elif kind == TREND:
         column = st.selectbox("Number column", numbers, key="line_column")
-        st.line_chart(df[column])
+        shown = df[column].head(MAX_CHART_POINTS)
+        frame = pd.DataFrame({"row": range(1, len(shown) + 1), "value": shown.to_numpy()})
+        show(line_chart(frame, "row", "value", "Row", column), f"Line chart of {column} row by row")
+        if len(df) > MAX_CHART_POINTS:
+            st.caption(f"Showing the first {MAX_CHART_POINTS:,} rows.")
     else:
         if len(numbers) < 2:
             st.info("You need at least two number columns for this chart.")
         else:
             x_axis = st.selectbox("Horizontal axis", numbers, key="scatter_x")
             y_axis = st.selectbox("Vertical axis", numbers, index=1, key="scatter_y")
-            st.scatter_chart(df.head(MAX_SCATTER_POINTS), x=x_axis, y=y_axis)
+            shown = df.head(MAX_CHART_POINTS)
+            frame = pd.DataFrame({"x": shown[x_axis].to_numpy(), "y": shown[y_axis].to_numpy()})
+            show(scatter_chart(frame, "x", "y", x_axis, y_axis), f"Scatter chart of {y_axis} against {x_axis}")
+            if len(df) > MAX_CHART_POINTS:
+                st.caption(f"Showing the first {MAX_CHART_POINTS:,} rows.")
 
 with filter_tab:
     filtered = df
