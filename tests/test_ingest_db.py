@@ -215,3 +215,49 @@ def test_fetch_api_does_not_retry_server_errors(monkeypatch):
     with pytest.raises(urllib.error.HTTPError):
         ingest.fetch_api("https://example.org", {})
     assert calls["count"] == 1
+
+
+def test_embed_all_waits_and_retries_when_gemini_says_slow_down(monkeypatch):
+    # The free tier allows 100 embeddings a minute, so a 120-row CSV hits the limit.
+    calls = {"count": 0}
+    waits = []
+
+    def fake_embed(texts, task_type):
+        calls["count"] += 1
+        if calls["count"] == 2:  # the second batch is refused once
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return [[0.0]] * len(texts)
+
+    monkeypatch.setattr(ingest, "EMBED_BATCH", 2)
+    monkeypatch.setattr(ingest, "embed_texts", fake_embed)
+    monkeypatch.setattr(ingest.time, "sleep", lambda seconds: waits.append(seconds))
+
+    vectors = ingest.embed_all(["a", "b", "c", "d"])
+
+    assert len(vectors) == 4
+    assert waits == [ingest.RATE_LIMIT_WAIT]
+
+
+def test_embed_all_gives_up_after_several_refusals(monkeypatch):
+    def always_refused(texts, task_type):
+        raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    monkeypatch.setattr(ingest, "embed_texts", always_refused)
+    monkeypatch.setattr(ingest.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(RuntimeError):
+        ingest.embed_all(["a"])
+
+
+def test_embed_all_does_not_retry_other_errors(monkeypatch):
+    calls = {"count": 0}
+
+    def broken(texts, task_type):
+        calls["count"] += 1
+        raise ValueError("bad input")
+
+    monkeypatch.setattr(ingest, "embed_texts", broken)
+
+    with pytest.raises(ValueError):
+        ingest.embed_all(["a"])
+    assert calls["count"] == 1

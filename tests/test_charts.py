@@ -59,3 +59,9 @@ def test_line_and_scatter_build_without_errors(mode):
     df = pd.DataFrame({"day": [1, 2, 3], "count": [4, 1, 3]})
     assert charts.line_chart(df, "day", "count", "Day", "Count").to_dict()["layer"]
     assert charts.scatter_chart(df, "day", "count", "Day", "Count").to_dict()["mark"]["type"] == "circle"
+
+
+def test_line_chart_can_force_whole_numbers_on_the_axis(mode):
+    df = pd.DataFrame({"day": [1, 2], "count": [1, 2]})
+    spec = charts.line_chart(df, "day", "count", "Day", "Count", whole_numbers=True).to_dict()
+    assert spec["layer"][0]["encoding"]["y"]["axis"]["tickMinStep"] == 1

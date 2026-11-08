@@ -97,4 +97,4 @@ def show_sidebar() -> None:
 def empty_state(message: str, page: str, label: str) -> None:
     # Shown when a page has nothing to display yet, with a link to the page that fixes it.
     st.info(message)
-    st.page_link(page, label=label, icon=":material/arrow_forward:")
+    st.page_link(page, label=label)

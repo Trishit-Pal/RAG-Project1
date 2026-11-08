@@ -1,25 +1,56 @@
 """Talk to the Postgres database (hosted on Supabase).
 
 Every file that reads or writes data uses these few functions.
+
+Opening a connection to the database takes about 2 seconds, so reading reuses
+one open connection instead of opening a new one for every query.
+Writing opens its own connection, so a save is all-or-nothing.
 """
+import threading
+
 import psycopg
 
 from core.config import DATABASE_URL
 
+# The one connection used for reading, kept open between queries.
+shared = {"connection": None}
+# Streamlit serves each visitor in its own thread. The lock makes them take
+# turns, because one connection can only run one query at a time.
+reading_lock = threading.Lock()
+
 
 def get_connection() -> psycopg.Connection:
-    # Use it in a "with" block. Changes are saved when the block ends without an error.
+    # For writing. Use it in a "with" block: changes are saved when the block
+    # ends without an error, and the connection is then closed.
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is missing. Add it to your .env file.")
     return psycopg.connect(DATABASE_URL)
 
 
+def open_reading_connection() -> psycopg.Connection:
+    # autocommit=True: each read stands alone, so the connection never sits in
+    # an unfinished transaction between visitors.
+    connection = get_connection()
+    connection.autocommit = True
+    return connection
+
+
 def fetch_all(sql: str, params: tuple = ()) -> list[tuple]:
     """Run a query and return every row it finds. Each row is a tuple."""
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, params)
-            return cur.fetchall()
+    with reading_lock:
+        for attempt in (1, 2):
+            if shared["connection"] is None:
+                shared["connection"] = open_reading_connection()
+            try:
+                with shared["connection"].cursor() as cur:
+                    cur.execute(sql, params)
+                    return cur.fetchall()
+            except psycopg.OperationalError:
+                # The connection was dropped (for example after a long quiet spell).
+                # Forget it and open a fresh one, once.
+                shared["connection"] = None
+                if attempt == 2:
+                    raise
 
 
 def rows_to_dicts(names: list[str], rows: list[tuple]) -> list[dict]:

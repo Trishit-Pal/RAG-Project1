@@ -27,7 +27,8 @@ with st.expander("What gets checked?"):
         f"- **CSV:** at least one row, no duplicate rows or column names, no column more than {MAX_NULL_RATIO:.0%} empty.\n"
         f"- **PDF, Word, text:** at least {MIN_TEXT_CHARS} characters of readable text (scanned images fail), PDFs up to {MAX_PAGES} pages.\n"
         "- **Personal data:** email addresses and phone numbers are replaced with [EMAIL] and [PHONE] before storing.\n"
-        f"- **Size:** up to {st.get_option('server.maxUploadSize')} MB per file."
+        f"- **Size:** up to {st.get_option('server.maxUploadSize')} MB per file.\n"
+        "- **Time:** the free Gemini plan reads about 100 rows or passages a minute, so a big CSV can take a few minutes."
     )
 
 files_tab, api_tab = st.tabs(["Files", "Live weather data"])
@@ -98,7 +99,7 @@ with api_tab:
     for name, config in API_SOURCES.items():
         with st.container(border=True):
             st.markdown(f"**{name}**")
-            st.caption(f"{config['url']} · Weather data by Open-Meteo.com (free for non-commercial use)")
+            st.caption(f"Weather data by Open-Meteo.com, free for non-commercial use. Source: {config['url']}")
             if st.button("Fetch latest data", key=f"api_{name}"):
                 try:
                     with st.spinner("Fetching and storing..."):

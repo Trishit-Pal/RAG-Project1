@@ -23,13 +23,16 @@ import pandas as pd
 from core.chunk import chunk_rows, chunk_text
 from core.db import bump_corpus_version, fetch_all, get_connection, to_vector_text
 from core.embed import DIM, MODEL, embed_texts
+from core.generate import is_rate_limit
 from core.parse import parse_csv, parse_docx, parse_pdf, parse_txt
 from core.quality import insert_quality_run, score_pages, score_table
 from core.stats import current_corpus_version, overview
 from core.validate import mask_pii, validate_csv, validate_pages
 
 EMBED_BATCH = 50  # texts per request to Gemini; small batches are gentler on the free tier
-MAX_TRIES = 3
+MAX_TRIES = 3     # tries for a web download
+RATE_LIMIT_WAIT = 30       # seconds to wait when Gemini says "too many requests"
+MAX_RATE_LIMIT_WAITS = 5   # tries per batch before giving up (about 2 minutes of waiting)
 
 # File types that become a list of text pages: extension -> (file type name, reader function).
 PAGE_FILE_TYPES = {
@@ -112,8 +115,24 @@ def embed_all(texts: list[str]) -> list[list[float]]:
     vectors = []
     for start in range(0, len(texts), EMBED_BATCH):
         batch = texts[start:start + EMBED_BATCH]
-        vectors.extend(embed_texts(batch, task_type="RETRIEVAL_DOCUMENT"))
+        vectors.extend(embed_batch(batch))
     return vectors
+
+
+def embed_batch(batch: list[str]) -> list[list[float]]:
+    """Embed one batch. If Gemini says "too many requests", wait and try again.
+
+    The free tier allows about 100 passages a minute, so a CSV with more rows
+    than that needs a pause in the middle.
+    """
+    for attempt in range(1, MAX_RATE_LIMIT_WAITS + 1):
+        try:
+            return embed_texts(batch, task_type="RETRIEVAL_DOCUMENT")
+        except Exception as error:
+            # Only rate limits are worth waiting for. Any other error, or the last try, stops here.
+            if not is_rate_limit(error) or attempt == MAX_RATE_LIMIT_WAITS:
+                raise
+            time.sleep(RATE_LIMIT_WAIT)
 
 
 # ---------- saving to the database ----------

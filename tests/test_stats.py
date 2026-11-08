@@ -58,3 +58,18 @@ def test_list_functions_name_every_column(monkeypatch, function, row, first_key)
 
     assert len(result[0]) == len(row)  # no column lost or unnamed
     assert result[0][first_key] == row[0]
+
+
+def test_questions_per_day_names_each_column(monkeypatch):
+    seen = {}
+
+    def fake_fetch_all(sql, params=()):
+        seen["params"] = params
+        return [("2026-11-07", 3), ("2026-11-08", 5)]
+
+    monkeypatch.setattr(stats, "fetch_all", fake_fetch_all)
+
+    result = stats.questions_per_day(days=30)
+
+    assert result == [{"day": "2026-11-07", "questions": 3}, {"day": "2026-11-08", "questions": 5}]
+    assert seen["params"] == (30,)  # the time window is passed in, not pasted into the SQL

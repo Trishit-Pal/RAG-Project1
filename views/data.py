@@ -28,7 +28,7 @@ st.title("Explore data")
 
 files = list_saved_csvs()
 if not files:
-    empty_state("No CSV files yet. Upload one first.", "pages/upload.py", "Go to Upload")
+    empty_state("No CSV files yet. Upload one first.", "views/upload.py", "Go to Upload")
     st.stop()
 
 # Show file names in the list, then look up the full path of the one picked.

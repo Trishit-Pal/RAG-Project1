@@ -92,6 +92,21 @@ def recent_questions(limit: int = 10) -> list[dict]:
     return rows_to_dicts(["question", "answer", "model", "latency_ms", "created_at"], rows)
 
 
+def questions_per_day(days: int = 30) -> list[dict]:
+    """How many questions were asked on each day, for the last `days` days."""
+    rows = fetch_all(
+        """
+        select created_at::date, count(*)
+        from query_traces
+        where created_at > now() - make_interval(days => %s)
+        group by 1
+        order by 1
+        """,
+        (days,),
+    )
+    return rows_to_dicts(["day", "questions"], rows)
+
+
 def get_chunks_by_ids(chunk_ids: list[int]) -> list[dict]:
     """Load saved passages by id, in the same order as chunk_ids.
 

@@ -57,6 +57,8 @@ h1, h2, h3, h4, [data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel
 [data-testid="stCaptionContainer"], [data-testid="stMetricLabel"], [data-testid="stNavSectionHeader"] {
     color: var(--muted);
 }
+/* Streamlit also fades captions to 60%, which makes them too faint to read; the muted color is enough. */
+[data-testid="stCaptionContainer"] { opacity: 1; }
 h1 { font-size: 2.6rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
 h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 
@@ -68,14 +70,31 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 [data-testid="stExpander"] details { background: var(--surface); }
 
 /* Inputs, dropdowns, file drop area */
+[data-testid="stTextInputRootElement"], [data-testid="stTextAreaRootElement"],
 [data-baseweb="input"], [data-baseweb="input"] input, [data-baseweb="textarea"], textarea,
 [data-baseweb="select"] > div, [data-testid="stFileUploaderDropzone"] {
     background: var(--surface);
     color: var(--ink);
     border-color: var(--line);
 }
-/* Dropdown menus open in a separate layer at the end of the page */
-[data-baseweb="popover"] ul, [data-baseweb="popover"] li { background: var(--surface); color: var(--ink); }
+/* Dropdowns: the closed box (role="group") and the open list (role="listbox") */
+[data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"] {
+    background: var(--surface);
+    border-color: var(--line);
+}
+[data-testid="stSelectbox"] input, [data-testid="stMultiSelect"] input { color: var(--ink); }
+[role="listbox"], [role="option"], [data-baseweb="popover"] ul, [data-baseweb="popover"] li {
+    background: var(--surface);
+    color: var(--ink);
+}
+
+/* Radio buttons. Only the circles that are NOT picked change; the picked one stays indigo.
+   The circle is the box that holds an empty box (the dot). */
+[data-testid="stRadio"] label:has(input:not(:checked)) div:has(> div:empty) {
+    background: var(--surface);
+    border-color: var(--muted);
+}
+[data-testid="stRadio"] div:empty { background: var(--surface); }
 
 /* Plain buttons (not the indigo main ones) */
 [data-testid^="stBaseButton-secondary"] { background: var(--surface); color: var(--ink); border-color: var(--line); }
@@ -83,6 +102,16 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 /* Chat */
 [data-testid="stChatMessage"] { background: var(--surface); border: 1px solid var(--line); }
 [data-testid="stChatInput"] > div { background: var(--surface); border-color: var(--line); }
+[data-testid^="stChatMessageAvatar"] { background: var(--page); border-color: var(--line); }
+[data-testid^="stChatMessageAvatar"] span { color: var(--ink); }  /* the icon itself */
+
+/* Grey hint text inside empty boxes. The container name in front makes these
+   rules strong enough to beat Streamlit's own (they carry a class name). */
+[data-testid="stChatInput"] textarea::placeholder, [data-testid="stMain"] input::placeholder,
+[data-testid="stMain"] textarea::placeholder { color: var(--muted); opacity: 1; }
+
+/* Divider lines (st.divider draws its line with the bottom border) */
+[data-testid="stSidebar"] hr, [data-testid="stMain"] hr { border-bottom-color: var(--line); }
 
 /* Plain tables (st.table) */
 [data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td {
@@ -92,8 +121,26 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 }
 [data-testid="stTable"] th { color: var(--muted); font-weight: 500; }
 
+/* The small toolbar that appears when you hover over a chart or table */
+[data-testid="stElementToolbarButtonContainer"], [data-testid="stElementToolbarButtonContainer"] button {
+    background: var(--surface);
+    color: var(--ink);
+}
+
+/* The small "?" help icons are drawn with an outline, not a text color */
+[data-testid="stTooltipIcon"] svg { stroke: var(--muted); }
+
 /* Info, warning and error boxes keep their tint; only their text follows the theme */
 [data-testid="stAlertContainer"] { color: var(--ink); }
+"""
+
+
+# Extra rules for dark mode only. Streamlit's message boxes (success, warning,
+# error) use pale tints made for light pages, which make light text unreadable.
+# In dark mode they get the card color and a thin line; the colored icon still
+# shows what kind of message it is.
+DARK_ONLY_RULES = """
+[data-testid="stAlertContainer"] { background: var(--surface); border: 1px solid var(--line); }
 """
 
 
@@ -115,6 +162,8 @@ def apply_theme() -> None:
     for name, color in palette().items():
         variables.append(f"--{name}: {color};")
     css = ":root { " + " ".join(variables) + " }" + STYLE_RULES
+    if is_dark():
+        css += DARK_ONLY_RULES
     st.html(f"<style>{css}</style>")
 
 

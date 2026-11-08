@@ -23,7 +23,7 @@ except Exception as err:
     st.stop()
 
 if not sources:
-    empty_state("Upload something first, so there is a source to test against.", "pages/upload.py", "Go to Upload")
+    empty_state("Upload something first, so there is a source to test against.", "views/upload.py", "Go to Upload")
     st.stop()
 
 # source id -> source name, to show names instead of long ids.
