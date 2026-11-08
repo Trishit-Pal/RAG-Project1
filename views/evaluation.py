@@ -7,7 +7,7 @@ import streamlit as st
 
 from core.evals import PASS_HIT_RATE, TOP_K, add_case, delete_case, list_cases, list_runs, run_eval
 from core.stats import list_sources
-from utils.ui import empty_state, show_error, show_table, when
+from utils.ui import UPLOAD_PAGE, empty_state, escape_markdown, show_error, show_table, when
 
 st.title("Evaluation")
 st.write(
@@ -23,7 +23,7 @@ except Exception as err:
     st.stop()
 
 if not sources:
-    empty_state("Upload something first, so there is a source to test against.", "views/upload.py", "Go to Upload")
+    empty_state("Upload something first, so there is a source to test against.", UPLOAD_PAGE, "Go to Upload")
     st.stop()
 
 # source id -> source name, to show names instead of long ids.
@@ -57,10 +57,11 @@ with cases_tab:
         label = ", ".join(expected_names)
         with st.container(border=True):
             left, right = st.columns([5, 1])
-            left.markdown(f"**{case['question']}**")
-            left.caption(f"Expected source: {label}")
+            # Typed by visitors, so shown as plain text.
+            left.markdown("**" + escape_markdown(case["question"]) + "**")
+            left.caption("Expected source: " + escape_markdown(label))
             if case["reference_answer"]:
-                left.caption(f"Your note: {case['reference_answer']}")
+                left.caption("Your note: " + escape_markdown(case["reference_answer"]))
             if right.button("Delete", key=f"delete_{case['id']}"):
                 delete_case(case["id"])
                 st.rerun()

@@ -100,49 +100,52 @@ def scatter_chart(df: pd.DataFrame, x: str, y: str, x_title: str, y_title: str) 
     ).properties(height=320)
 
 
-def split_bar(parts: list[dict]) -> alt.Chart:
-    """One bar split into parts, like "4 ready, 1 set aside".
+def series_to_frame(series: pd.Series, label: str, value: str) -> pd.DataFrame:
+    """Turn a list of numbers with names (a pandas Series) into a two-column table for a chart.
 
-    parts: [{"label": "Ready", "count": 4}, {"label": "Set aside", "count": 1}].
-    The first part gets the accent color, the rest gray; the legend names them.
+    The names become text, so the chart treats them as names, not as numbers.
     """
+    return pd.DataFrame({label: series.index.astype(str), value: series.to_numpy()})
+
+
+def split_bar(ready: int, set_aside: int) -> alt.Chart:
+    """One bar split into two parts: files that are ready (accent) and set aside (gray)."""
     colors = palette()
-    labels = []
-    rows = []
-    position = 0
-    for part in parts:
-        labels.append(part["label"])
-        rows.append({"label": part["label"], "count": part["count"], "position": position})
-        position += 1
-    color_range = [colors["accent"]] + [colors["gray"]] * (len(parts) - 1)
-    # The 2px line in the background color between parts keeps them apart.
-    return alt.Chart(pd.DataFrame(rows)).mark_bar(cornerRadius=4, height=28, stroke=colors["page"], strokeWidth=2).encode(
+    ready_label = f"Ready ({ready})"
+    set_aside_label = f"Set aside ({set_aside})"
+    rows = pd.DataFrame([
+        {"label": ready_label, "count": ready, "position": 0},
+        {"label": set_aside_label, "count": set_aside, "position": 1},
+    ])
+    # The 2px line in the background color between the parts keeps them apart.
+    return alt.Chart(rows).mark_bar(cornerRadius=4, height=28, stroke=colors["page"], strokeWidth=2).encode(
         x=alt.X("count:Q", stack="zero", axis=None),
-        color=alt.Color("label:N", title=None, scale=alt.Scale(domain=labels, range=color_range)),
-        order=alt.Order("position:Q"),  # keep the parts in the given order
+        color=alt.Color("label:N", title=None,
+                        scale=alt.Scale(domain=[ready_label, set_aside_label], range=[colors["accent"], colors["gray"]])),
+        order=alt.Order("position:Q"),  # "Ready" first
         tooltip=[alt.Tooltip("label:N", title="Status"), alt.Tooltip("count:Q", title="Files")],
     ).properties(height=90)  # room for the bar and the legend under it
 
 
-def highlight_bars(df: pd.DataFrame, label: str, value: str, highlighted: str, value_title: str,
+def highlight_bars(df: pd.DataFrame, label: str, value: str, group: str, value_title: str,
                    on_text: str, off_text: str) -> alt.Chart:
     """Horizontal bars where some are highlighted (accent) and the rest are gray.
 
-    highlighted: name of a True/False column. on_text / off_text name the two
-    groups in the legend, so the meaning never depends on color alone.
+    group: the column saying which kind each bar is, holding either on_text or
+    off_text. Those words also go in the legend, so the meaning never depends
+    on color alone.
     """
     colors = palette()
-    data = df.copy()
-    data["group"] = data[highlighted].map({True: on_text, False: off_text})
-    base = alt.Chart(data).encode(
+    base = alt.Chart(df).encode(
         # sort=None keeps the given order: [1], [2], ...
         y=alt.Y(f"{label}:N", title=None, sort=None, scale=alt.Scale(paddingInner=BAR_GAP)),
         x=alt.X(f"{value}:Q", title=value_title, axis=alt.Axis(format="%"), scale=alt.Scale(domain=[0, 1])),
         tooltip=[alt.Tooltip(f"{label}:N", title="Source"), alt.Tooltip(f"{value}:Q", title=value_title, format=".0%"),
-                 alt.Tooltip("group:N", title=" ")],
+                 alt.Tooltip(f"{group}:N", title=" ")],
     )
     bars = base.mark_bar(cornerRadiusEnd=4).encode(
-        color=alt.Color("group:N", title=None, scale=alt.Scale(domain=[on_text, off_text], range=[colors["accent"], colors["gray"]])),
+        color=alt.Color(f"{group}:N", title=None,
+                        scale=alt.Scale(domain=[on_text, off_text], range=[colors["accent"], colors["gray"]])),
     )
     # The value at the tip of each bar, in a text color (never the bar color).
     tips = base.mark_text(align="left", dx=6, color=colors["muted"], fontSize=12).encode(text=alt.Text(f"{value}:Q", format=".0%"))

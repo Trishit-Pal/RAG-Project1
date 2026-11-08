@@ -5,6 +5,7 @@ plain message, so passwords or file paths never appear in the browser.
 """
 import logging
 
+import pandas as pd
 import psycopg
 import streamlit as st
 
@@ -24,14 +25,48 @@ STATUS_LABELS = {
 }
 
 
+# The page that "go to Upload" links point at.
+UPLOAD_PAGE = "views/upload.py"
+
+# Characters that Markdown treats as formatting (links, images, bold, lists...).
+MARKDOWN_CHARACTERS = "\\`*_{}[]()#+-.!|<>~$:"
+
+
 def when(moment) -> str:
     # One date format for every page, like "2026-11-08 14:05".
     return f"{moment:%Y-%m-%d %H:%M}"
 
 
+def escape_markdown(text: str) -> str:
+    """Put a backslash before every formatting character, so the text shows exactly as typed.
+
+    Needed because anyone can upload files: a column named "[click](https://...)"
+    must show as those characters, not as a link.
+    """
+    escaped = ""
+    for character in text:
+        if character in MARKDOWN_CHARACTERS:
+            escaped += "\\"
+        escaped += character
+    return escaped
+
+
 def show_table(rows) -> None:
-    """A plain table for short lists. Unlike st.dataframe, it follows the light/dark look."""
-    st.table(rows, hide_index=True)
+    """A plain table for short lists. Unlike st.dataframe, it follows the light/dark look.
+
+    st.table reads text as Markdown, so every text cell and heading is escaped first.
+    """
+    table = pd.DataFrame(rows)
+    safe_columns = {}
+    for column in table.columns:
+        values = []
+        for value in table[column]:
+            if isinstance(value, str):
+                values.append(escape_markdown(value))
+            else:
+                values.append(value)  # numbers stay numbers
+        safe_columns[escape_markdown(str(column))] = values
+    st.table(pd.DataFrame(safe_columns), hide_index=True)
 
 
 def readable_documents(documents: list[dict]) -> list[dict]:
@@ -55,6 +90,9 @@ def friendly_message(error: Exception) -> str:
     from core.generate import is_rate_limit
 
     text = str(error)
+    # Checked first: a query stopped for taking too long is a special kind of OperationalError.
+    if isinstance(error, psycopg.errors.QueryCanceled):
+        return "The database took too long to answer. Please try again in a moment."
     if isinstance(error, psycopg.OperationalError):
         return "Cannot reach the database. Check DATABASE_URL in your .env file and your internet connection."
     if is_rate_limit(error):

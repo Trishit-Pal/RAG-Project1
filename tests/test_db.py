@@ -80,3 +80,50 @@ def test_fetch_all_does_not_retry_a_mistake_in_the_query(opened):
     with pytest.raises(psycopg.errors.SyntaxError):
         db.fetch_all("bad sql")
     assert len(opened) == 1
+
+
+def test_a_cancelled_slow_query_is_not_retried_and_keeps_the_connection(opened):
+    db.fetch_all("select 1")
+    first = opened[0]
+    first.broken = False
+
+    def cancelled(sql, params):
+        raise psycopg.errors.QueryCanceled("canceling statement due to statement timeout")
+
+    original_cursor = first.cursor
+    first.cursor = lambda: type("C", (), {"execute": staticmethod(cancelled), "__enter__": lambda self: self,
+                                          "__exit__": lambda self, *exc: False})()
+    with pytest.raises(psycopg.errors.QueryCanceled):
+        db.fetch_all("select pg_sleep(60)")
+    first.cursor = original_cursor
+    assert len(opened) == 1  # no new connection was opened
+
+
+def test_a_dropped_connection_is_closed_before_it_is_replaced(opened):
+    db.fetch_all("select 1")
+    opened[0].broken = True
+    db.fetch_all("select 1")
+    assert opened[0].closed is True
+
+
+def test_reading_connection_has_timeouts_and_works_with_any_pooler(monkeypatch):
+    seen = {"commands": []}
+
+    class RecordingConnection:
+        def execute(self, sql):
+            seen["commands"].append(sql)
+
+    def fake_connect(url, **settings):
+        seen.update(settings)
+        return RecordingConnection()
+
+    monkeypatch.setattr(db, "DATABASE_URL", "postgresql://example")
+    monkeypatch.setattr(db.psycopg, "connect", fake_connect)
+
+    db.open_reading_connection()
+
+    assert seen["autocommit"] is True
+    assert seen["connect_timeout"] > 0
+    assert seen["prepare_threshold"] is None  # transaction poolers cannot keep prepared statements
+    # Set as a command: Supabase's pooler ignores it when passed while connecting.
+    assert seen["commands"] == [f"set statement_timeout = {db.READ_TIMEOUT_MS}"]

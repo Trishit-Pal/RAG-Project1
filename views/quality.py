@@ -50,7 +50,7 @@ with summary_tab:
         cells[1].metric("Groups scored", len(scores))
         cells[2].metric("Lowest score", f"{min(scores):.2f}")
         frame = pd.DataFrame(scored)[["name", "quality_score"]]
-        show(bar_chart(frame, "name", "quality_score", "Group", "Score (1.0 is perfect)"),
+        show(bar_chart(frame, "name", "quality_score", "Group", "Score (1 is perfect)"),
              "Bar chart of the quality score of each group")
         st.caption("A low score usually means many empty cells or duplicate rows.")
 

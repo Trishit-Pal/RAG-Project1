@@ -8,7 +8,7 @@ import streamlit as st
 from core.generate import generate_text
 from core.stats import list_documents, list_sources, overview, questions_per_day
 from utils.charts import bar_chart, line_chart, show, split_bar
-from utils.ui import empty_state, readable_documents, show_error, show_table
+from utils.ui import UPLOAD_PAGE, empty_state, readable_documents, show_error, show_table
 
 st.title("Ask your documents.")
 st.write("Cited answers from your own files. Upload PDFs, Word or text files and CSVs, then ask in plain English.")
@@ -27,7 +27,7 @@ set_aside = info["documents"].get("quarantined", 0)
 
 # ---------- Ask straight away ----------
 if ready == 0:
-    empty_state("The library is empty. Upload a file first, then ask about it.", "views/upload.py", "Go to Upload")
+    empty_state("The library is empty. Upload a file first, then ask about it.", UPLOAD_PAGE, "Go to Upload")
 else:
     with st.form("home_question", border=False):
         question_column, button_column = st.columns([5, 1], vertical_alignment="bottom")
@@ -38,10 +38,13 @@ else:
             st.switch_page("views/documents_qa.py")
 
 # ---------- Key numbers ----------
+# One pass over the groups: their scores (for the average) and rows for the chart.
 scores = []
+scored = []
 for source in sources:
     if source["quality_score"] is not None:
         scores.append(source["quality_score"])
+        scored.append({"group": source["name"], "score": source["quality_score"]})
 
 numbers = st.columns(3)
 numbers[0].metric("Documents ready", ready)
@@ -78,14 +81,9 @@ with left:
         # Nothing to compare, so a sentence says it better than a chart.
         st.write(f"All {ready} files passed the checks. None were set aside.")
     else:
-        parts = [{"label": f"Ready ({ready})", "count": ready}, {"label": f"Set aside ({set_aside})", "count": set_aside}]
-        show(split_bar(parts), f"{ready} files ready and {set_aside} set aside")
+        show(split_bar(ready, set_aside), f"{ready} files ready and {set_aside} set aside")
 
     st.markdown("**Quality by group**")
-    scored = []
-    for source in sources:
-        if source["quality_score"] is not None:
-            scored.append({"group": source["name"], "score": source["quality_score"]})
     if scored:
         show(bar_chart(pd.DataFrame(scored), "group", "score", "Group", "Score (1 is perfect)"),
              "Bar chart of the quality score of each group of files")

@@ -59,9 +59,12 @@ You need Python 3.11, a free [Supabase](https://supabase.com) project and a free
    `sql/` in order: `001_init.sql`, `002_match_chunks.sql`, `003_jobs_and_cache.sql`.
 3. **Add your keys.** Create a file named `.env` in the project folder:
    ```
-   DATABASE_URL=postgresql://...   # Supabase: the "Connect" button at the top of your project
+   DATABASE_URL=postgresql://...
    GEMINI_API_KEY=...
    ```
+   For `DATABASE_URL`, open your Supabase project, click **Connect**, and copy the
+   **Session pooler** connection string (it ends in `:5432/postgres`). The "Direct"
+   string does not work from Streamlit Cloud.
    `.env` is ignored by git, so your keys are never uploaded.
 4. **Start the app**
    ```bash

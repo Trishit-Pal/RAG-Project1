@@ -8,7 +8,7 @@ import streamlit as st
 from core.ask import NOT_FOUND, ask, cited_numbers, clear_answer_cache
 from core.stats import count_indexed_documents, recent_questions
 from utils.charts import highlight_bars, show
-from utils.ui import empty_state, show_error, when
+from utils.ui import UPLOAD_PAGE, empty_state, escape_markdown, show_error, when
 
 st.title("Ask your documents")
 
@@ -19,7 +19,7 @@ except Exception as err:
     st.stop()
 
 if ready == 0:
-    empty_state("Upload a document first, then come back to ask questions.", "views/upload.py", "Go to Upload")
+    empty_state("Upload a document first, then come back to ask questions.", UPLOAD_PAGE, "Go to Upload")
     st.stop()
 
 # The chat lives in session_state so it survives Streamlit re-running this file.
@@ -27,43 +27,58 @@ if "chat" not in st.session_state:
     st.session_state.chat = []
 
 
-def show_sources(chunks: list[dict], answer: str) -> None:
-    # Sources are numbered the same way as the [1], [2] markers in the answer.
+USED = "Used in the answer"
+NOT_USED = "Not used"
+
+
+def describe_sources(chunks: list[dict], answer: str) -> list[dict]:
+    """One entry per source: its number, the passage, and whether the answer used it.
+
+    Sources are numbered the same way as the [1], [2] markers in the answer.
+    """
     cited = cited_numbers(answer)
+    sources = []
     number = 1
     for chunk in chunks:
         if number in cited:
-            status = "used in the answer"
+            status = USED
         else:
-            status = "not used"
-        # Saved answers do not keep the match score, so it can be missing.
-        if chunk["similarity"] is None:
-            label = f"[{number}] {chunk['filename']} ({status})"
-        else:
-            label = f"[{number}] {chunk['filename']} ({chunk['similarity']:.0%} match, {status})"
-        with st.expander(label):
-            st.write(chunk["text"])
+            status = NOT_USED
+        sources.append({"number": number, "chunk": chunk, "status": status})
         number += 1
+    return sources
 
 
-def show_match_chart(chunks: list[dict], answer: str) -> None:
+def show_match_chart(sources: list[dict]) -> None:
     """A bar per source: how closely it matched the question, with used sources highlighted."""
-    cited = cited_numbers(answer)
     rows = []
-    number = 1
-    for chunk in chunks:
+    for source in sources:
+        chunk = source["chunk"]
         if chunk["similarity"] is None:
             st.caption("Match scores are not kept for saved answers.")
             return
         rows.append({
-            "source": f"[{number}] {chunk['filename']}",
+            "source": f"[{source['number']}] {chunk['filename']}",
             "match": chunk["similarity"],
-            "used": number in cited,
+            "status": source["status"],
         })
-        number += 1
-    chart = highlight_bars(pd.DataFrame(rows), "source", "match", "used",
-                           "Match with your question", "Used in the answer", "Not used")
+    chart = highlight_bars(pd.DataFrame(rows), "source", "match", "status", "Match with your question", USED, NOT_USED)
     show(chart, "Bar chart of how closely each source matched the question, with the sources used in the answer highlighted")
+
+
+def show_passages(sources: list[dict]) -> None:
+    # One box per source; open it to read the passage.
+    for source in sources:
+        chunk = source["chunk"]
+        # File names and passages come from uploads, so they are shown as plain text.
+        name = escape_markdown(chunk["filename"])
+        status = source["status"].lower()
+        if chunk["similarity"] is None:  # saved answers do not keep the match score
+            label = f"[{source['number']}] {name} ({status})"
+        else:
+            label = f"[{source['number']}] {name} ({chunk['similarity']:.0%} match, {status})"
+        with st.expander(label):
+            st.markdown(escape_markdown(chunk["text"]))
 
 
 AVATARS = {"user": ":material/person:", "assistant": ":material/auto_awesome:"}
@@ -71,7 +86,8 @@ AVATARS = {"user": ":material/person:", "assistant": ":material/auto_awesome:"}
 
 def show_message(message: dict) -> None:
     with st.chat_message(message["role"], avatar=AVATARS[message["role"]]):
-        st.write(message["text"])
+        # Plain text: answers are written from documents anyone can upload.
+        st.markdown(escape_markdown(message["text"]))
         if message["role"] != "assistant":
             return
         if message["text"] == NOT_FOUND:
@@ -85,8 +101,9 @@ def show_message(message: dict) -> None:
         st.caption(caption)
         if message["chunks"]:
             st.markdown("**Sources**")
-            show_match_chart(message["chunks"], message["text"])
-            show_sources(message["chunks"], message["text"])
+            sources = describe_sources(message["chunks"], message["text"])
+            show_match_chart(sources)
+            show_passages(sources)
 
 
 top_left, top_middle, top_right = st.columns([3, 1, 1])
@@ -129,7 +146,8 @@ if question:
     show_message(reply)
 
 with st.expander("Earlier questions"):
+    # Questions from every visitor, so they are shown as plain text.
     for item in recent_questions(limit=10):
-        st.markdown(f"**{item['question']}**")
+        st.markdown("**" + escape_markdown(item["question"]) + "**")
         st.caption(f"{when(item['created_at'])}, written by {item['model']}")
-        st.write(item["answer"])
+        st.markdown(escape_markdown(item["answer"]))

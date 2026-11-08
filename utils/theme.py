@@ -54,11 +54,9 @@ h1, h2, h3, h4, [data-testid="stMarkdownContainer"], [data-testid="stWidgetLabel
 [data-testid="stMetricValue"], [data-testid="stSidebarNavLink"] span, label, summary {
     color: var(--ink);
 }
-[data-testid="stCaptionContainer"], [data-testid="stMetricLabel"], [data-testid="stNavSectionHeader"] {
-    color: var(--muted);
-}
+[data-testid="stMetricLabel"], [data-testid="stNavSectionHeader"] { color: var(--muted); }
 /* Streamlit also fades captions to 60%, which makes them too faint to read; the muted color is enough. */
-[data-testid="stCaptionContainer"] { opacity: 1; }
+[data-testid="stCaptionContainer"] { color: var(--muted); opacity: 1; }
 h1 { font-size: 2.6rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
 h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 
@@ -70,9 +68,8 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
 [data-testid="stExpander"] details { background: var(--surface); }
 
 /* Inputs, dropdowns, file drop area */
-[data-testid="stTextInputRootElement"], [data-testid="stTextAreaRootElement"],
-[data-baseweb="input"], [data-baseweb="input"] input, [data-baseweb="textarea"], textarea,
-[data-baseweb="select"] > div, [data-testid="stFileUploaderDropzone"] {
+[data-testid="stTextInputRootElement"], [data-testid="stTextAreaRootElement"], textarea,
+[data-testid="stFileUploaderDropzone"] {
     background: var(--surface);
     color: var(--ink);
     border-color: var(--line);
@@ -83,7 +80,7 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
     border-color: var(--line);
 }
 [data-testid="stSelectbox"] input, [data-testid="stMultiSelect"] input { color: var(--ink); }
-[role="listbox"], [role="option"], [data-baseweb="popover"] ul, [data-baseweb="popover"] li {
+[role="listbox"], [role="option"] {
     background: var(--surface);
     color: var(--ink);
 }

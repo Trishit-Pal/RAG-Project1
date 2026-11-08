@@ -44,12 +44,6 @@ def test_filter_does_not_change_the_original():
     assert len(df) == 4
 
 
-def test_group_average_returns_one_row_per_group():
-    result = dataview.group_average(sample(), "region", "sales")
-    assert result.loc["north"] == 20
-    assert result.loc["south"] == 20
-
-
 def test_histogram_counts_adds_up_to_the_number_of_values():
     counts = dataview.histogram_counts(pd.Series([1, 2, 2, 3, 9]), bins=4)
     assert counts.sum() == 5
@@ -80,3 +74,9 @@ def test_full_range_keeps_rows_with_empty_cells():
     df = pd.DataFrame({"sales": [10, None, 30]})
     # The slider starts at the full range: that must not hide the empty row.
     assert len(dataview.filter_by_range(df, "sales", 10, 30)) == 3
+
+
+def test_top_group_averages_keeps_only_the_highest_groups():
+    df = pd.DataFrame({"name": ["a", "a", "b", "c", "d"], "score": [1, 3, 10, 5, 7]})
+    result = dataview.top_group_averages(df, "name", "score", limit=2)
+    assert list(result.index) == ["b", "d"]  # highest averages first

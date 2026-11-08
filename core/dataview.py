@@ -44,9 +44,14 @@ def filter_by_range(df: pd.DataFrame, column: str, low: float, high: float) -> p
     return df[df[column].between(low, high)].copy()
 
 
-def group_average(df: pd.DataFrame, group_column: str, value_column: str) -> pd.Series:
-    # For example: average sales per region.
-    return df.groupby(group_column)[value_column].mean()
+def top_group_averages(df: pd.DataFrame, group_column: str, value_column: str, limit: int) -> pd.Series:
+    """Average per group (for example sales per region), highest first, top `limit` groups only.
+
+    A column like "customer id" can have thousands of groups; one bar each
+    would make a chart too tall to draw.
+    """
+    averages = df.groupby(group_column)[value_column].mean()
+    return averages.sort_values(ascending=False).head(limit)
 
 
 def histogram_counts(values: pd.Series, bins: int = 20) -> pd.Series:

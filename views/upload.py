@@ -9,7 +9,7 @@ import streamlit as st
 from core.ingest import API_SOURCES, SUPPORTED_TYPES, ingest_api, ingest_file
 from core.uploads import remove_upload, save_upload
 from core.validate import MAX_NULL_RATIO, MAX_PAGES, MIN_TEXT_CHARS
-from utils.ui import show_error, show_table
+from utils.ui import escape_markdown, show_error, show_table
 
 OUTCOME_LABELS = {
     "indexed": "✅ Added",
@@ -104,6 +104,6 @@ with api_tab:
                 try:
                     with st.spinner("Fetching and storing..."):
                         outcome, detail = ingest_api(name)
-                    st.info(f"{OUTCOME_LABELS.get(outcome, outcome)}: {detail}")
+                    st.info(f"{OUTCOME_LABELS.get(outcome, outcome)}: {escape_markdown(detail)}")
                 except Exception as err:
                     show_error(err)

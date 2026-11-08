@@ -9,11 +9,12 @@ import streamlit as st
 from core import dataview
 from core.parse import parse_csv
 from core.uploads import list_saved_csvs
-from utils.charts import bar_chart, histogram_chart, line_chart, scatter_chart, show
-from utils.ui import empty_state, show_error, show_table
+from utils.charts import bar_chart, histogram_chart, line_chart, scatter_chart, series_to_frame, show
+from utils.ui import UPLOAD_PAGE, empty_state, escape_markdown, show_error, show_table
 
-MAX_CHART_POINTS = 5000  # the chart library refuses more rows than this, and it gets slow
-MAX_FILTER_CHOICES = 50    # a column with more different values is not a good filter
+MAX_CHART_POINTS = 5000  # more points than this make line and scatter charts slow
+MAX_FILTER_CHOICES = 50  # a column with more different values is not a good filter
+MAX_GROUPS = 50          # "Average by group" shows at most this many bars
 
 
 @st.cache_resource(max_entries=5)
@@ -28,7 +29,7 @@ st.title("Explore data")
 
 files = list_saved_csvs()
 if not files:
-    empty_state("No CSV files yet. Upload one first.", "views/upload.py", "Go to Upload")
+    empty_state("No CSV files yet. Upload one first.", UPLOAD_PAGE, "Go to Upload")
     st.stop()
 
 # Show file names in the list, then look up the full path of the one picked.
@@ -75,7 +76,7 @@ with columns_tab:
         picked = st.selectbox("Column", text_columns, key="common_column")
         counts = df[picked].value_counts().head(15)
         # Simple column names for the chart; the real name goes in the axis title.
-        common = pd.DataFrame({"value": counts.index.astype(str), "rows": counts.to_numpy()})
+        common = series_to_frame(counts, "value", "rows")
         show(bar_chart(common, "value", "rows", picked, "rows"), f"Bar chart of the most common values in {picked}")
 
 with charts_tab:
@@ -84,6 +85,8 @@ with charts_tab:
     TREND = "Trend over rows"
     COMPARE = "Compare two numbers"
     kind = st.radio("Chart type", [DISTRIBUTION, AVERAGE, TREND, COMPARE], horizontal=True)
+    # Line and scatter charts use at most the first MAX_CHART_POINTS rows.
+    chart_rows = df.head(MAX_CHART_POINTS)
     if not numbers:
         st.info("This file has no number columns, so there is nothing to chart.")
     elif kind == DISTRIBUTION:
@@ -91,7 +94,7 @@ with charts_tab:
         bins = st.slider("Number of bars", 5, 50, 20)
         counts = dataview.histogram_counts(df[column], bins)
         if counts.empty:
-            st.info(f"'{column}' has no values to chart (every cell is empty).")
+            st.info(f"'{escape_markdown(column)}' has no values to chart (every cell is empty).")
         else:
             show(histogram_chart(counts, column), f"Column chart of how {column} values are spread")
     elif kind == AVERAGE:
@@ -100,28 +103,26 @@ with charts_tab:
         else:
             group = st.selectbox("Group by", text_columns, key="group_column")
             value = st.selectbox("Average of", numbers, key="group_value")
-            averages = dataview.group_average(df, group, value)
-            frame = pd.DataFrame({"group": averages.index.astype(str), "average": averages.to_numpy()})
+            averages = dataview.top_group_averages(df, group, value, MAX_GROUPS)
+            frame = series_to_frame(averages, "group", "average")
             show(bar_chart(frame, "group", "average", group, f"average {value}"),
                  f"Bar chart of average {value} for each {group}")
+            if df[group].nunique() > MAX_GROUPS:
+                st.caption(f"Showing the {MAX_GROUPS} groups with the highest average.")
     elif kind == TREND:
         column = st.selectbox("Number column", numbers, key="line_column")
-        shown = df[column].head(MAX_CHART_POINTS)
-        frame = pd.DataFrame({"row": range(1, len(shown) + 1), "value": shown.to_numpy()})
+        frame = pd.DataFrame({"row": range(1, len(chart_rows) + 1), "value": chart_rows[column].to_numpy()})
         show(line_chart(frame, "row", "value", "Row", column), f"Line chart of {column} row by row")
-        if len(df) > MAX_CHART_POINTS:
-            st.caption(f"Showing the first {MAX_CHART_POINTS:,} rows.")
     else:
         if len(numbers) < 2:
             st.info("You need at least two number columns for this chart.")
         else:
             x_axis = st.selectbox("Horizontal axis", numbers, key="scatter_x")
             y_axis = st.selectbox("Vertical axis", numbers, index=1, key="scatter_y")
-            shown = df.head(MAX_CHART_POINTS)
-            frame = pd.DataFrame({"x": shown[x_axis].to_numpy(), "y": shown[y_axis].to_numpy()})
+            frame = pd.DataFrame({"x": chart_rows[x_axis].to_numpy(), "y": chart_rows[y_axis].to_numpy()})
             show(scatter_chart(frame, "x", "y", x_axis, y_axis), f"Scatter chart of {y_axis} against {x_axis}")
-            if len(df) > MAX_CHART_POINTS:
-                st.caption(f"Showing the first {MAX_CHART_POINTS:,} rows.")
+    if kind in (TREND, COMPARE) and len(df) > MAX_CHART_POINTS:
+        st.caption(f"Showing the first {MAX_CHART_POINTS:,} rows.")
 
 with filter_tab:
     filtered = df

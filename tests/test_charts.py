@@ -30,22 +30,30 @@ def test_bar_chart_uses_the_accent_for_the_current_mode(mode):
 
 
 def test_highlight_bars_color_used_sources_accent_and_others_gray(mode):
-    df = pd.DataFrame({"source": ["[1]", "[2]"], "match": [0.8, 0.6], "used": [True, False]})
-    spec = charts.highlight_bars(df, "source", "match", "used", "Match", "Used", "Not used").to_dict()
+    df = pd.DataFrame({"source": ["[1]", "[2]"], "match": [0.8, 0.6], "status": ["Used", "Not used"]})
+    spec = charts.highlight_bars(df, "source", "match", "status", "Match", "Used", "Not used").to_dict()
     scale = spec["layer"][0]["encoding"]["color"]["scale"]
     assert scale["domain"] == ["Used", "Not used"]
     assert scale["range"] == [mode["accent"], mode["gray"]]
 
 
 def test_highlight_bars_never_draws_text_in_the_bar_color(mode):
-    df = pd.DataFrame({"source": ["[1]"], "match": [0.8], "used": [True]})
-    spec = charts.highlight_bars(df, "source", "match", "used", "Match", "Used", "Not used").to_dict()
+    df = pd.DataFrame({"source": ["[1]"], "match": [0.8], "status": ["Used"]})
+    spec = charts.highlight_bars(df, "source", "match", "status", "Match", "Used", "Not used").to_dict()
     assert spec["layer"][1]["mark"]["color"] == mode["muted"]
 
 
-def test_split_bar_gives_the_first_part_the_accent(mode):
-    spec = charts.split_bar([{"label": "Ready", "count": 4}, {"label": "Set aside", "count": 1}]).to_dict()
+def test_split_bar_gives_ready_files_the_accent(mode):
+    spec = charts.split_bar(ready=4, set_aside=1).to_dict()
+    assert spec["encoding"]["color"]["scale"]["domain"] == ["Ready (4)", "Set aside (1)"]
     assert spec["encoding"]["color"]["scale"]["range"] == [mode["accent"], mode["gray"]]
+
+
+def test_series_to_frame_makes_a_two_column_table_with_text_labels():
+    counts = pd.Series([5, 2], index=[2024, 2025])
+    frame = charts.series_to_frame(counts, "year", "rows")
+    assert list(frame.columns) == ["year", "rows"]
+    assert list(frame["year"]) == ["2024", "2025"]
 
 
 def test_histogram_keeps_one_column_per_range_in_number_order(mode):
