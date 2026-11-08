@@ -1,45 +1,50 @@
-"""Phase 7b: call Gemini to write answers.
+"""Ask Gemini to write an answer.
 
-Rate-limit errors (HTTP 429) are retried a few times. If they keep failing,
-the request falls back to a cheaper model.
+Used by core/ask.py. If Google says "too many requests" (a rate limit), we wait
+and try again. If it still fails, we try a cheaper backup model once.
 """
+import time
+
 from google import genai
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from core.config import settings
 
-PRIMARY_MODEL = "gemini-3.5-flash"
-# Approved fallback. Free-tier availability is NOT yet verified (see notes).
-FALLBACK_MODEL = "gemini-2.5-flash-lite"
+MAIN_MODEL = "gemini-3.5-flash"
+BACKUP_MODEL = "gemini-2.5-flash-lite"  # used only when the main model is rate-limited
+MAX_TRIES = 3
 
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
-def _is_rate_limit(err: Exception) -> bool:
-    # Google's rate-limit errors contain "429" or "RESOURCE_EXHAUSTED".
-    text = str(err)
+def is_rate_limit(error: Exception) -> bool:
+    # Google's "too many requests" errors contain "429" or "RESOURCE_EXHAUSTED".
+    text = str(error)
     return "429" in text or "RESOURCE_EXHAUSTED" in text
 
 
-@retry(
-    retry=retry_if_exception(_is_rate_limit),  # only retry rate limits
-    stop=stop_after_attempt(3),                # 3 tries in total
-    wait=wait_exponential(multiplier=2, min=2, max=20),  # waits grow: 2s, 4s, ...
-    reraise=True,                              # if all tries fail, raise the error
-)
-def _call_model(prompt: str, model: str) -> str:
-    response = client.models.generate_content(model=model, contents=prompt)
-    if response.text is None:
-        raise RuntimeError("Gemini returned no text")
-    return response.text
+def call_model(prompt: str, model: str) -> str:
+    """Send the prompt to one model. Retry up to 3 times when rate-limited."""
+    for attempt in range(1, MAX_TRIES + 1):
+        try:
+            response = client.models.generate_content(model=model, contents=prompt)
+        except Exception as error:
+            # Only rate limits are worth retrying. Any other error, or the last try, stops here.
+            if not is_rate_limit(error) or attempt == MAX_TRIES:
+                raise
+            time.sleep(2 * attempt)  # wait 2 seconds, then 4 seconds
+            continue
+
+        if response.text is None:
+            raise RuntimeError("Gemini returned no text")
+        return response.text
 
 
-def generate_text(prompt: str, model: str = PRIMARY_MODEL) -> tuple[str, str]:
-    # Returns (answer, model that wrote it), so callers can record which one was used.
+def generate_text(prompt: str) -> tuple[str, str]:
+    """Return (answer, name of the model that wrote it)."""
     try:
-        return _call_model(prompt, model), model
-    except Exception as err:
-        # Still rate-limited after retries: try the fallback once.
-        if _is_rate_limit(err) and model != FALLBACK_MODEL:
-            return _call_model(prompt, FALLBACK_MODEL), FALLBACK_MODEL
-        raise
+        return call_model(prompt, MAIN_MODEL), MAIN_MODEL
+    except Exception as error:
+        if not is_rate_limit(error):
+            raise
+        # Still rate-limited after all tries: try the backup model.
+        return call_model(prompt, BACKUP_MODEL), BACKUP_MODEL

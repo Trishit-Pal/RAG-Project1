@@ -2,7 +2,7 @@ from pathlib import Path
 
 import docx
 import pandas as pd
-import pymupdf4llm
+import pymupdf
 
 
 def parse_csv(path: str | Path) -> pd.DataFrame:
@@ -12,8 +12,12 @@ def parse_csv(path: str | Path) -> pd.DataFrame:
 
 
 def parse_pdf(path: str | Path) -> list[str]:
-    pages = pymupdf4llm.to_markdown(str(path), page_chunks=True)
-    return [page["text"] for page in pages]
+    # One text per page. The "with" block closes the file when done.
+    pages = []
+    with pymupdf.open(str(path)) as document:
+        for page in document:
+            pages.append(page.get_text())
+    return pages
 
 
 def parse_docx(path: str | Path) -> list[str]:

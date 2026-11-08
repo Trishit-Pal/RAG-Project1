@@ -11,9 +11,13 @@ Pipeline for each document:
 """
 import argparse
 import hashlib
+import json
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
-import httpx
 import pandas as pd
 
 from core.chunk import chunk_rows, chunk_text
@@ -24,7 +28,6 @@ from core.quality import insert_quality_run, score_pages, score_table
 from core.stats import current_corpus_version, overview
 from core.validate import mask_pii, validate_csv, validate_pages
 from core.vectors import to_vector_literal
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 
 # Texts per embedding request. Small batches are gentler on the free tier (judgment).
@@ -42,18 +45,31 @@ PAGE_FILE_TYPES = {
 # Every file type the app accepts. The upload page and save_upload() use this list too.
 SUPPORTED_TYPES = {".csv", *PAGE_FILE_TYPES}
 
+MAX_TRIES = 3
+
+
+def fetch_api(url: str, params: dict) -> bytes:
+    """Download a web address and return the raw answer.
+
+    Network problems (no connection, timeout) are tried 3 times, 5 seconds apart.
+    """
+    full_url = url + "?" + urllib.parse.urlencode(params)
+    for attempt in range(1, MAX_TRIES + 1):
+        try:
+            with urllib.request.urlopen(full_url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError:
+            # The server answered with an error (like 404 or 500). Trying again will not help.
+            # This check must come first: HTTPError is a special kind of URLError.
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == MAX_TRIES:
+                raise
+            time.sleep(5)
+
+
 # Public API sources. Open-Meteo needs no API key.
 # Free for non-commercial use; attribution is required (https://open-meteo.com/).
-@retry(
-    retry=retry_if_exception_type(httpx.TransportError),  # retry network problems only
-    stop=stop_after_attempt(3),                           # 3 tries in total
-    wait=wait_fixed(5),                                   # wait 5 seconds between tries
-    reraise=True,                                         # raise the last error if all tries fail
-)
-def fetch_api(url: str, params: dict) -> httpx.Response:
-    response = httpx.get(url, params=params, timeout=60)
-    response.raise_for_status()  # HTTP errors such as 404 or 500 are not retried
-    return response
 API_SOURCES = {
     "open-meteo-paris": {
         "url": "https://api.open-meteo.com/v1/forecast",
@@ -225,14 +241,12 @@ def ingest_file(path_str: str, source_name: str) -> tuple[str, str]:
 
 def ingest_api(source_name: str) -> tuple[str, str]:
     config = API_SOURCES[source_name]  # raises KeyError for an unknown name
-    response = fetch_api(config["url"], config["params"])
-
-    raw = response.content
+    raw = fetch_api(config["url"], config["params"])
     sha = sha256_bytes(raw)
     if document_exists(sha):
         return "skipped", f"the latest {source_name} data is already stored"
 
-    df = hourly_to_frame(response.json())
+    df = hourly_to_frame(json.loads(raw))
     result = validate_csv(df)
     quality = score_table(df, passed=result.ok)
     source_id = get_or_create_source(source_name, "api", uri=config["url"])

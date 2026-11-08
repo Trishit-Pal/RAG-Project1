@@ -110,10 +110,8 @@ def test_embed_all_sends_texts_in_batches(monkeypatch):
 
 
 def test_ingest_api_skips_a_response_it_has_already_stored(monkeypatch):
-    class FakeResponse:
-        content = b'{"hourly": {"time": ["t1"], "temperature_2m": [1.0]}}'
-
-    monkeypatch.setattr(ingest, "fetch_api", lambda url, params: FakeResponse())
+    raw = b'{"hourly": {"time": ["t1"], "temperature_2m": [1.0]}}'
+    monkeypatch.setattr(ingest, "fetch_api", lambda url, params: raw)
     monkeypatch.setattr(ingest, "document_exists", lambda sha: True)
 
     assert ingest.ingest_api("open-meteo-paris")[0] == "skipped"
@@ -170,3 +168,50 @@ def test_index_texts_refuses_to_save_when_counts_differ(fake_db, monkeypatch):
     monkeypatch.setattr(ingest, "embed_all", lambda texts: [[0.1]])  # 1 vector for 2 texts
     with pytest.raises(ValueError):
         ingest.index_texts("src-1", "a.txt", "text/plain", 10, "sha", ["one", "two"], fake_quality())
+
+
+class FakeAnswer:
+    # Stands in for what urllib.request.urlopen returns.
+    def read(self):
+        return b"weather data"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def fake_urlopen_failing(times, error):
+    calls = {"count": 0}
+
+    def fake_urlopen(url, timeout):
+        calls["count"] += 1
+        if calls["count"] <= times:
+            raise error
+        return FakeAnswer()
+
+    return fake_urlopen, calls
+
+
+def test_fetch_api_retries_network_problems(monkeypatch):
+    import urllib.error
+
+    fake, calls = fake_urlopen_failing(2, urllib.error.URLError("no connection"))
+    monkeypatch.setattr(ingest.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(ingest.time, "sleep", lambda seconds: None)
+
+    assert ingest.fetch_api("https://example.org", {"a": 1}) == b"weather data"
+    assert calls["count"] == 3
+
+
+def test_fetch_api_does_not_retry_server_errors(monkeypatch):
+    import urllib.error
+
+    error = urllib.error.HTTPError("https://example.org", 404, "Not Found", {}, None)
+    fake, calls = fake_urlopen_failing(5, error)
+    monkeypatch.setattr(ingest.urllib.request, "urlopen", fake)
+
+    with pytest.raises(urllib.error.HTTPError):
+        ingest.fetch_api("https://example.org", {})
+    assert calls["count"] == 1
