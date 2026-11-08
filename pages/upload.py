@@ -52,10 +52,15 @@ def process_file(uploaded, group_name: str) -> tuple[str, str]:
     return outcome, detail
 
 
+# The uploader wants extensions without the dot: "csv", not ".csv".
+allowed_extensions = []
+for extension in SUPPORTED_TYPES:
+    allowed_extensions.append(extension.lstrip("."))
+
 with files_tab:
     uploaded_files = st.file_uploader(
         "Choose files",
-        type=[t.lstrip(".") for t in sorted(SUPPORTED_TYPES)],
+        type=allowed_extensions,
         accept_multiple_files=True,
         help="You can select several files at once.",
     )
@@ -64,13 +69,17 @@ with files_tab:
         help="Files with the same group name share one quality score. Leave empty to use each file's name.",
     )
     if uploaded_files:
-        st.caption(", ".join(f"{f.name} ({f.size / 1024:,.0f} KB)" for f in uploaded_files))
+        sizes = []
+        for uploaded in uploaded_files:
+            sizes.append(f"{uploaded.name} ({uploaded.size / 1024:,.0f} KB)")
+        st.caption(", ".join(sizes))
 
     if st.button("Add to knowledge base", type="primary", disabled=not uploaded_files):
         rows = []
         added = 0
         progress = st.progress(0.0)
-        for index, uploaded in enumerate(uploaded_files, start=1):
+        done = 0
+        for uploaded in uploaded_files:
             with st.status(f"Processing {uploaded.name}...", expanded=False) as status:
                 outcome, detail = process_file(uploaded, group_name.strip())
                 label = OUTCOME_LABELS.get(outcome, outcome)
@@ -78,7 +87,8 @@ with files_tab:
             rows.append({"File": uploaded.name, "Result": label, "Details": detail})
             if outcome == "indexed":
                 added += 1
-            progress.progress(index / len(uploaded_files))
+            done += 1
+            progress.progress(done / len(uploaded_files))
         st.dataframe(rows, hide_index=True, width="stretch")
         if added:
             st.success(f"{added} file(s) added. You can now ask questions about them.")

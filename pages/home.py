@@ -1,6 +1,7 @@
 """Page "Home": what the app does, what is stored, and a quick Gemini check."""
 import streamlit as st
 
+from core.generate import generate_text
 from core.stats import list_documents, overview, recent_questions
 from utils.ui import empty_state, readable_documents, show_error, when
 
@@ -44,10 +45,13 @@ steps = [
     ("3. Search", "Your question is matched to the most similar passages."),
     ("4. Answer", "Gemini writes an answer using only those passages, with citations."),
 ]
-for column, (title, text) in zip(st.columns(4), steps):
-    with column.container(border=True):
+step_columns = st.columns(4)
+position = 0
+for title, text in steps:
+    with step_columns[position].container(border=True):
         st.markdown(f"**{title}**")
         st.caption(text)
+    position += 1
 
 left, right = st.columns(2)
 with left:
@@ -74,8 +78,6 @@ with st.expander("System check"):
     st.write("Sends one short message to Gemini to confirm the key works.")
     if st.button("Test Gemini"):
         try:
-            from core.generate import generate_text
-
             with st.spinner("Asking Gemini..."):
                 reply, model = generate_text("Reply with the single word: ready")
             st.success(f"Gemini answered with {model}: {reply.strip()}")

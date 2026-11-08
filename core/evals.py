@@ -9,10 +9,9 @@ import json
 import subprocess
 
 from core.db import fetch_all, get_connection, rows_to_dicts
-from core.retrieve import retrieve
+from core.retrieve import TOP_K, retrieve
 
 PASS_HIT_RATE = 0.7  # a run passes at 70% hits or more (a judgment call)
-TOP_K = 6            # how many passages the search returns per question
 
 
 # ---------- small calculations (no database, easy to test) ----------
@@ -69,14 +68,6 @@ def list_runs(limit: int = 20) -> list[dict]:
     return rows_to_dicts(["run_at", "git_sha", "metrics", "passed"], rows)
 
 
-def source_of_documents(document_ids: list) -> dict:
-    """Return {document id: source id} for all the documents, in one query."""
-    if not document_ids:
-        return {}
-    rows = fetch_all("select id, source_id from documents where id = any(%s)", (document_ids,))
-    return dict(rows)
-
-
 def git_version() -> str:
     # The short git commit id, to record which version of the code was tested.
     try:
@@ -98,28 +89,14 @@ def save_run(metrics: dict, passed: bool) -> None:
 
 def run_eval() -> dict:
     """Run every saved case. Returns {"results": [...], "metrics": {...}, "passed": True/False}."""
-    cases = list_cases()
-
-    # 1. Search for every question. retrieve() uses the same cut-off as answers do.
-    found_documents = {}  # case id -> list of document ids
-    all_documents = []
-    for case in cases:
-        document_ids = []
-        for chunk in retrieve(case["question"], TOP_K):
-            document_ids.append(chunk["document_id"])
-            all_documents.append(chunk["document_id"])
-        found_documents[case["id"]] = document_ids
-
-    # 2. Find out which source each document belongs to, in one query.
-    source_of = source_of_documents(all_documents)
-
-    # 3. Score each question.
     results = []
     hits = []
-    for case in cases:
+    for case in list_cases():
+        # Search for the question. retrieve() uses the same cut-off as answers do,
+        # and tells us which source each passage came from.
         found_sources = []
-        for document_id in found_documents[case["id"]]:
-            found_sources.append(source_of.get(document_id))
+        for chunk in retrieve(case["question"], TOP_K):
+            found_sources.append(chunk["source_id"])
         hit = is_hit(case["expected_source_ids"], found_sources)
         results.append({"question": case["question"], "hit": hit})
         hits.append(hit)

@@ -10,8 +10,6 @@ from dotenv import load_dotenv
 # Copy the lines of the .env file into the environment, so os.getenv() can read them.
 load_dotenv()
 
-REQUIRED_SETTINGS = ["DATABASE_URL", "GEMINI_API_KEY"]
-
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
@@ -19,7 +17,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 def missing_settings() -> list[str]:
     """Return the names of required settings that are empty or not set."""
     missing = []
-    for name in REQUIRED_SETTINGS:
-        if not os.getenv(name, "").strip():
-            missing.append(name)
+    if not DATABASE_URL:
+        missing.append("DATABASE_URL")
+    if not GEMINI_API_KEY:
+        missing.append("GEMINI_API_KEY")
     return missing

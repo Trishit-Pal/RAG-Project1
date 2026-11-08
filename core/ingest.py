@@ -187,14 +187,21 @@ def store_quarantined(source_id, filename, mime_type, byte_size, sha, rule, prob
 # Both return (outcome, detail). outcome is one of: indexed, skipped,
 # quarantined, rejected, error. detail is a short sentence for people.
 
+def check_table(df: pd.DataFrame):
+    """Check a table and cut it into chunks. Returns (problems, quality, chunks)."""
+    problems = validate_csv(df)
+    quality = score_table(df, passed=not problems)
+    chunks = []
+    if not problems:
+        chunks = chunk_rows(df)  # one chunk per row
+    return problems, quality, chunks
+
+
 def read_file(path: Path):
     """Open and check a supported file. Returns (mime type, problems, quality, chunks)."""
     extension = path.suffix.lower()
     if extension == ".csv":
-        df = parse_csv(path)
-        problems = validate_csv(df)
-        quality = score_table(df, passed=not problems)
-        chunks = chunk_rows(df) if not problems else []
+        problems, quality, chunks = check_table(parse_csv(path))
         return "text/csv", problems, quality, chunks
 
     # PDF, Word and text files all become a list of text pages.
@@ -240,16 +247,15 @@ def ingest_api(source_name: str) -> tuple[str, str]:
         return "skipped", f"the latest {source_name} data is already stored"
 
     df = hourly_to_frame(json.loads(raw))
-    problems = validate_csv(df)
-    quality = score_table(df, passed=not problems)
+    problems, quality, chunks = check_table(df)
     source_id = get_or_create_source(source_name, "api", uri=config["url"])
     filename = f"{source_name}.json"
 
     if problems:
         store_quarantined(source_id, filename, "application/json", len(raw), sha, "api_validation", problems, quality)
         return "quarantined", f"{source_name}: {'; '.join(problems)}"
-    # Each hourly row becomes one chunk, like a CSV row.
-    return index_texts(source_id, filename, "application/json", len(raw), sha, chunk_rows(df), quality)
+    # Each hourly row became one chunk, like a CSV row.
+    return index_texts(source_id, filename, "application/json", len(raw), sha, chunks, quality)
 
 
 def show_status() -> None:

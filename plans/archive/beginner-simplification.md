@@ -40,7 +40,7 @@ Verified when: `pytest` is green and a live ingest of one PDF plus one weather f
 Verified when: `pytest` is green, and the grep for `@dataclass|lambda|@retry` in `core/ utils/ pages/ app.py` finds nothing.
 
 #### Step 2.1: Settings as plain variables (Size: S)
-- Acceptance: `config.py` exposes `DATABASE_URL`, `GEMINI_API_KEY` and `REQUIRED_SETTINGS`; `utils/ui.missing_settings` reuses that list (removes the duplicate the simplify review found).
+- Acceptance: `config.py` exposes `DATABASE_URL`, `GEMINI_API_KEY` and `missing_settings()`, which app.py uses (removes the duplicate the simplify review found).
 - Files likely touched: `core/config.py`, `core/db.py`, `core/embed.py`, `core/generate.py`, `utils/ui.py`
 - Blocked by: none
 
@@ -96,5 +96,25 @@ Verified when: `/simplify` and `/engineering:code-review` findings are fixed or 
 | 1 Remove libraries | done: 7 app libraries left, live download + PDF verified |
 | 2 Basic Python | done: no dataclass/lambda/decorator/filtered one-liners left |
 | 3 Structure | done: vectors.py, logger.py, messages.py merged; 8 empty folders gone; live end-to-end check passed |
-| 4 Reviews | pending |
-| 5 Commit | pending |
+| 4 Reviews | done: code review approved (1 fix), /simplify 11 fixes applied, 3 skipped |
+| 5 Commit | done |
+
+## Execution record (2026-11-08)
+**Shipped:** commits 2213b6a (libraries), 57c5c3c (basic Python + structure),
+d768a24 (code-review fix), and the /simplify pass.
+
+**Goal check:**
+1. Libraries: 7 app libraries left (was 10): tenacity, httpx, pymupdf4llm removed.
+2. No `@dataclass`, custom decorator, `lambda` or filtered one-liner in app code.
+   Streamlit's own `@st.cache_data` / `@st.cache_resource` stay (nothing plainer does the job).
+3. Every file opens with a plain-English note.
+4. 106 tests pass, 84% coverage on `core/`; live run: 60-row CSV stores 60 chunks,
+   saved answers reused, evaluation hit, all 6 pages load.
+
+**Deviations from the plan:**
+- `attach_filenames()` and `source_of_documents()` were removed: `retrieve()` returns
+  each passage's file name and source from one query.
+- One `check_table()` now serves both CSV uploads and weather data.
+- Skipped: moving the documents join into `match_chunks()` (needs a live database
+  change, which is out of scope); one shared "unsupported type" check (both copies
+  are needed, before saving and on the command line).

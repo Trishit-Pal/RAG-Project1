@@ -77,7 +77,7 @@ def get_cached(key: str, version: int):
     if not rows:
         return None
     answer, chunk_ids, model = rows[0]
-    return {"answer": answer, "chunk_ids": list(chunk_ids or []), "model": model, "cached": True}
+    return {"answer": answer, "chunk_ids": list(chunk_ids or []), "model": model}
 
 
 def save_trace(question, key, version, answer, chunk_ids, model, latency_ms) -> None:

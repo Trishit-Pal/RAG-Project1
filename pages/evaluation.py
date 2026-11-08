@@ -39,7 +39,7 @@ with cases_tab:
         expected = st.multiselect(
             "Which source(s) should answer it?",
             list(source_names),
-            format_func=source_names.get,
+            format_func=source_names.get,  # show each source id as its name
         )
         reference = st.text_area("Expected answer (optional, for your own notes)")
         if st.form_submit_button("Save test question"):
@@ -51,7 +51,10 @@ with cases_tab:
 
     st.subheader(f"Saved questions ({len(cases)})")
     for case in cases:
-        label = ", ".join(source_names.get(i, "removed source") for i in case["expected_source_ids"])
+        expected_names = []
+        for source_id in case["expected_source_ids"]:
+            expected_names.append(source_names.get(source_id, "removed source"))
+        label = ", ".join(expected_names)
         with st.container(border=True):
             left, right = st.columns([5, 1])
             left.markdown(f"**{case['question']}**")

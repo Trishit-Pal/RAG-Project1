@@ -30,9 +30,11 @@ except Exception as err:
 
 # Only groups that already have a score.
 scored = []
+scores = []
 for source in sources:
     if source["quality_score"] is not None:
         scored.append(source)
+        scores.append(source["quality_score"])
 
 summary_tab, runs_tab, quarantine_tab, documents_tab = st.tabs(
     ["Scores", "History", "Set-aside files", "All documents"]
@@ -42,9 +44,6 @@ with summary_tab:
     if not scored:
         st.info("No scores yet. Scores appear after you upload a file.")
     else:
-        scores = []
-        for source in scored:
-            scores.append(source["quality_score"])
         cells = st.columns(3)
         cells[0].metric("Average score", f"{sum(scores) / len(scores):.2f}")
         cells[1].metric("Groups scored", len(scores))
@@ -83,7 +82,8 @@ with documents_tab:
         for row in rows:
             if row["Status"] not in statuses:
                 statuses.append(row["Status"])
-        picked = st.multiselect("Show status", sorted(statuses), default=sorted(statuses))
+        statuses = sorted(statuses)
+        picked = st.multiselect("Show status", statuses, default=statuses)
 
         shown = []
         for row in rows:

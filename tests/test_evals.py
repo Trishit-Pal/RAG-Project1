@@ -36,9 +36,8 @@ def test_run_eval_scores_each_case_by_its_retrieved_sources(monkeypatch):
         {"id": 2, "question": "q2", "expected_source_ids": ["src-b"]},
     ]
     monkeypatch.setattr(evals, "list_cases", lambda: cases)
-    monkeypatch.setattr(evals, "retrieve", lambda q, k: [{"document_id": "doc-1", "similarity": 0.9}])
-    # Every retrieved document belongs to src-a, so only case 1 is a hit.
-    monkeypatch.setattr(evals, "source_of_documents", lambda ids: {"doc-1": "src-a"})
+    # Every passage found comes from src-a, so only case 1 is a hit.
+    monkeypatch.setattr(evals, "retrieve", lambda q, k: [{"document_id": "doc-1", "source_id": "src-a"}])
     saved = {}
     monkeypatch.setattr(evals, "save_run", lambda metrics, passed: saved.update(m=metrics, p=passed))
 
@@ -54,14 +53,6 @@ def test_list_cases_turns_rows_into_dictionaries(monkeypatch):
     assert evals.list_cases() == [
         {"id": 1, "question": "q?", "expected_source_ids": ["src-a"], "reference_answer": None}
     ]
-
-
-def test_source_of_no_documents_skips_the_database(monkeypatch):
-    def boom(*args, **kwargs):
-        raise AssertionError("should not query the database")
-
-    monkeypatch.setattr(evals, "fetch_all", boom)
-    assert evals.source_of_documents([]) == {}
 
 
 def test_run_eval_with_no_cases_saves_nothing(monkeypatch):

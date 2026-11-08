@@ -89,7 +89,7 @@ def test_get_cached_returns_the_saved_answer(monkeypatch):
 
     monkeypatch.setattr(ask_module, "fetch_all", lambda sql, params=(): [("A [1]", [4, 5], "m")])
     cached = ask_module.get_cached("key", 1)
-    assert cached == {"answer": "A [1]", "chunk_ids": [4, 5], "model": "m", "cached": True}
+    assert cached == {"answer": "A [1]", "chunk_ids": [4, 5], "model": "m"}
 
 
 def test_cached_answer_is_ignored_when_a_cited_passage_is_gone(monkeypatch):

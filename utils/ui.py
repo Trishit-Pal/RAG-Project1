@@ -8,6 +8,8 @@ import logging
 import psycopg
 import streamlit as st
 
+from core.db import fetch_all
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("rag")
 
@@ -42,10 +44,14 @@ def readable_documents(documents: list[dict]) -> list[dict]:
 
 def friendly_message(error: Exception) -> str:
     """Turn a technical error into a short message a person can act on."""
+    # Imported here, not at the top: loading core.generate needs the Gemini key, and
+    # app.py must be able to show "missing settings" before the key is checked.
+    from core.generate import is_rate_limit
+
     text = str(error)
     if isinstance(error, psycopg.OperationalError):
         return "Cannot reach the database. Check DATABASE_URL in your .env file and your internet connection."
-    if "429" in text or "RESOURCE_EXHAUSTED" in text:
+    if is_rate_limit(error):
         return "Gemini is busy or the free limit was reached. Please wait a minute and try again."
     if "API key" in text or "API_KEY" in text or "403" in text:
         return "Gemini rejected the API key. Check GEMINI_API_KEY in your .env file."
@@ -61,8 +67,6 @@ def show_error(error: Exception) -> None:
 @st.cache_data(ttl=30)
 def database_is_up() -> bool:
     # Remembered for 30 seconds, so the sidebar does not ask the database on every click.
-    from core.db import fetch_all
-
     try:
         fetch_all("select 1")
         return True

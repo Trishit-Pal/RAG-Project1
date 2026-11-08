@@ -111,14 +111,9 @@ def get_chunks_by_ids(chunk_ids: list[int]) -> list[dict]:
 
     # The database may return rows in any order, so look each one up by id.
     found = {}
-    for row in rows:
-        found[row[0]] = {
-            "chunk_id": row[0],
-            "document_id": row[1],
-            "text": row[2],
-            "filename": row[3],
-            "similarity": None,  # not saved with the answer
-        }
+    for chunk in rows_to_dicts(["chunk_id", "document_id", "text", "filename"], rows):
+        chunk["similarity"] = None  # not saved with the answer
+        found[chunk["chunk_id"]] = chunk
 
     # Keep the original order, so the [1], [2] numbers in the answer still match.
     chunks = []

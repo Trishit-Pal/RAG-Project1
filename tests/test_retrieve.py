@@ -12,14 +12,14 @@ def test_retrieve_casts_arguments_to_the_types_match_chunks_expects(monkeypatch)
 
     retrieve_module.retrieve("question")
 
-    assert "%s::int" in seen["sql"]
-    assert "%s::real" in seen["sql"]
+    assert "::int" in seen["sql"]
+    assert "::real" in seen["sql"]
 
 
 def test_retrieve_drops_weak_matches(monkeypatch):
     # Answers and evaluation both rely on this cut-off.
     monkeypatch.setattr(retrieve_module, "embed_texts", lambda texts, task_type: [[0.1]])
-    rows = [(1, "doc-1", "close", 0.8, 0.9, "a.pdf"), (2, "doc-2", "far away", 0.1, 0.9, "b.pdf")]
+    rows = [(1, "doc-1", "close", 0.8, "a.pdf", "src-1"), (2, "doc-2", "far away", 0.1, "b.pdf", "src-2")]
     monkeypatch.setattr(retrieve_module, "fetch_all", lambda sql, params=(): rows)
 
     assert [c["chunk_id"] for c in retrieve_module.retrieve("question")] == [1]
@@ -27,12 +27,12 @@ def test_retrieve_drops_weak_matches(monkeypatch):
 
 def test_retrieve_returns_dictionaries(monkeypatch):
     monkeypatch.setattr(retrieve_module, "embed_texts", lambda texts, task_type: [[0.1]])
-    row = (7, "doc-1", "some text", 0.8, None, "a.pdf")
+    row = (7, "doc-1", "some text", 0.8, "a.pdf", "src-1")
     monkeypatch.setattr(retrieve_module, "fetch_all", lambda sql, params=(): [row])
 
     chunks = retrieve_module.retrieve("question")
 
     assert chunks == [{
         "chunk_id": 7, "document_id": "doc-1", "text": "some text",
-        "similarity": 0.8, "source_quality": 0.0, "filename": "a.pdf",
+        "similarity": 0.8, "filename": "a.pdf", "source_id": "src-1",
     }]

@@ -28,11 +28,20 @@ if "chat" not in st.session_state:
 def show_sources(chunks: list[dict], answer: str) -> None:
     # Sources are numbered the same way as the [1], [2] markers in the answer.
     cited = cited_numbers(answer)
-    for number, chunk in enumerate(chunks, start=1):
-        match = "n/a" if chunk["similarity"] is None else f"{chunk['similarity']:.0%}"
-        status = "used in the answer" if number in cited else "not used"
+    number = 1
+    for chunk in chunks:
+        # Saved answers do not keep the match score, so it can be missing.
+        if chunk["similarity"] is None:
+            match = "n/a"
+        else:
+            match = f"{chunk['similarity']:.0%}"
+        if number in cited:
+            status = "used in the answer"
+        else:
+            status = "not used"
         with st.expander(f"[{number}] {chunk['filename']} · match {match} · {status}"):
             st.write(chunk["text"])
+        number += 1
 
 
 def show_message(message: dict) -> None:
@@ -42,9 +51,13 @@ def show_message(message: dict) -> None:
             return
         if message["text"] == NOT_FOUND:
             st.caption("Try different words, or upload a document that covers this topic.")
-        badge = "Saved answer, reused" if message["cached"] else "New answer"
-        writer = f" · written by {message['model']}" if message["model"] else ""
-        st.caption(badge + writer)
+        if message["cached"]:
+            caption = "Saved answer, reused"
+        else:
+            caption = "New answer"
+        if message["model"]:
+            caption += f" · written by {message['model']}"
+        st.caption(caption)
         if message["chunks"]:
             st.markdown("**Sources**")
             show_sources(message["chunks"], message["text"])
