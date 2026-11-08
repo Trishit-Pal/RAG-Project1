@@ -1,6 +1,6 @@
 import psycopg
 
-from utils.messages import friendly_message
+from utils.ui import friendly_message
 
 
 def test_database_errors_point_to_the_env_file():

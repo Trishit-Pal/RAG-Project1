@@ -5,33 +5,36 @@ from core.validate import mask_pii, validate_csv, validate_pages
 
 def test_validate_csv_accepts_clean_frame():
     df = pd.DataFrame({"name": ["a", "b"], "amount": [1, 2]})
-    assert validate_csv(df).ok
+    assert validate_csv(df) == []  # no problems
 
 
 def test_validate_csv_rejects_empty_frame():
-    result = validate_csv(pd.DataFrame(columns=["name"]))
-    assert not result.ok
-    assert any("fewer than" in r for r in result.reasons)
+    problems = validate_csv(pd.DataFrame(columns=["name"]))
+    assert any("fewer than" in problem for problem in problems)
 
 
-def test_validate_csv_rejects_mostly_null_column():
+def test_validate_csv_rejects_mostly_empty_column():
     df = pd.DataFrame({"name": ["a", None, None], "amount": [1, 2, 3]})
-    result = validate_csv(df)
-    assert not result.ok
-    assert any("'name'" in r for r in result.reasons)
+    problems = validate_csv(df)
+    assert any("'name'" in problem for problem in problems)
 
 
 def test_validate_csv_rejects_duplicate_rows():
     df = pd.DataFrame({"name": ["a", "a"], "amount": [1, 1]})
-    assert any("duplicate rows" in r for r in validate_csv(df).reasons)
+    assert "duplicate rows" in validate_csv(df)
+
+
+def test_validate_csv_rejects_duplicate_column_names():
+    df = pd.DataFrame([[1, 2]], columns=["a", "a"])
+    assert validate_csv(df) == ["duplicate column names"]
 
 
 def test_validate_pages_rejects_short_text():
-    assert not validate_pages(["hi"]).ok
+    assert validate_pages(["hi"]) != []
 
 
 def test_validate_pages_accepts_enough_text():
-    assert validate_pages(["x" * 300]).ok
+    assert validate_pages(["x" * 300]) == []
 
 
 def test_mask_pii_masks_email_and_phone():

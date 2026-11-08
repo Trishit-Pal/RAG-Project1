@@ -1,4 +1,4 @@
-"""Small pandas helpers for the Data page.
+"""Small table helpers for the Explore data page.
 
 Every function returns a new table and never changes the one it was given.
 """
@@ -6,10 +6,13 @@ import pandas as pd
 
 
 def column_overview(df: pd.DataFrame) -> pd.DataFrame:
-    # One row per column: its type, how much is missing, and how many different values.
+    """One row per column: its type, how many cells are empty, and how many different values."""
+    types = []
+    for dtype in df.dtypes:
+        types.append(str(dtype))
     return pd.DataFrame({
         "column": df.columns,
-        "type": [str(t) for t in df.dtypes],
+        "type": types,
         "missing": df.isna().sum().to_numpy(),
         "missing_pct": (df.isna().mean() * 100).round(1).to_numpy(),
         "unique": df.nunique().to_numpy(),
@@ -17,10 +20,13 @@ def column_overview(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def column_kinds(df: pd.DataFrame) -> tuple[list[str], list[str]]:
-    # Returns (number columns, everything else). Charts need to know which is which.
+    """Return (number columns, other columns). Charts need to know which is which."""
     numbers = df.select_dtypes(include="number").columns.tolist()
-    text = [c for c in df.columns if c not in numbers]
-    return numbers, text
+    others = []
+    for column in df.columns:
+        if column not in numbers:
+            others.append(column)
+    return numbers, others
 
 
 def filter_by_values(df: pd.DataFrame, column: str, values: list) -> pd.DataFrame:
@@ -44,14 +50,20 @@ def group_average(df: pd.DataFrame, group_column: str, value_column: str) -> pd.
 
 
 def histogram_counts(values: pd.Series, bins: int = 20) -> pd.Series:
-    # How many values fall into each of `bins` equal-width buckets.
-    # Missing values are skipped. Each bucket is labelled with its middle value.
-    # Labels must be numbers: the chart sorts text labels alphabetically, which scrambles the order.
+    """Count how many values fall into each of `bins` equal-width buckets.
+
+    Empty cells are skipped. Each bucket is labelled with the number in its middle.
+    """
     present = values.dropna()
     if present.empty:
         return pd.Series(dtype="int64")  # nothing to count (pd.cut would crash)
-    counts = pd.cut(present, bins=bins).value_counts(sort=False)
-    # 6 significant figures keeps labels short but distinct, even for tiny ranges like 0.0001.
-    counts.index = [float(f"{interval.mid:.6g}") for interval in counts.index]
-    return counts
 
+    counts = pd.cut(present, bins=bins).value_counts(sort=False)
+    # Labels must be numbers, not text: the chart sorts text alphabetically,
+    # which would scramble the order. 6 significant digits keeps them short but
+    # still different from each other, even for tiny ranges like 0.0001.
+    labels = []
+    for bucket in counts.index:
+        labels.append(float(f"{bucket.mid:.6g}"))
+    counts.index = labels
+    return counts

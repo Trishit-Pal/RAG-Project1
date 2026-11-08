@@ -1,7 +1,7 @@
-"""Check that search still finds the right documents.
+"""Page "Evaluation": check that search still finds the right documents.
 
 Save a few questions and say which source should answer each one.
-"Run evaluation" then checks whether the search finds that source.
+"Run evaluation" then checks whether search finds that source (see core/evals.py).
 """
 import streamlit as st
 
@@ -26,7 +26,10 @@ if not sources:
     empty_state("Upload something first, so there is a source to test against.", "pages/upload.py", "Go to Upload")
     st.stop()
 
-source_names = {s["id"]: s["name"] for s in sources}
+# source id -> source name, to show names instead of long ids.
+source_names = {}
+for source in sources:
+    source_names[source["id"]] = source["name"]
 
 cases_tab, run_tab = st.tabs(["Test questions", "Run and results"])
 
@@ -73,27 +76,22 @@ with run_tab:
             st.success("Passed. " + message)
         else:
             st.error("Failed. " + message)
-        st.dataframe(
-            [{"Question": r["question"], "Result": "✅ hit" if r["hit"] else "❌ miss"} for r in outcome["results"]],
-            hide_index=True,
-            width="stretch",
-        )
+        result_rows = []
+        for result in outcome["results"]:
+            result_rows.append({"Question": result["question"], "Result": "✅ hit" if result["hit"] else "❌ miss"})
+        st.dataframe(result_rows, hide_index=True, width="stretch")
 
     st.subheader("Past runs")
     runs = list_runs()
     if runs:
-        st.dataframe(
-            [
-                {
-                    "When": when(r["run_at"]),
-                    "App version": r["git_sha"],
-                    "Hit rate": f"{r['metrics'].get('hit_rate', 0):.0%}",
-                    "Result": "passed" if r["passed"] else "failed",
-                }
-                for r in runs
-            ],
-            hide_index=True,
-            width="stretch",
-        )
+        run_rows = []
+        for run in runs:
+            run_rows.append({
+                "When": when(run["run_at"]),
+                "App version": run["git_sha"],
+                "Hit rate": f"{run['metrics'].get('hit_rate', 0):.0%}",
+                "Result": "passed" if run["passed"] else "failed",
+            })
+        st.dataframe(run_rows, hide_index=True, width="stretch")
     else:
         st.caption("No runs yet.")

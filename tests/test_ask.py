@@ -41,7 +41,6 @@ def test_ask_fresh_answer_saves_the_model_that_answered(monkeypatch):
     monkeypatch.setattr(ask_module, "current_corpus_version", lambda: 1)
     monkeypatch.setattr(ask_module, "get_cached", lambda key, version: None)
     monkeypatch.setattr(ask_module, "retrieve", lambda q: [_fake_chunk()])
-    monkeypatch.setattr(ask_module, "attach_filenames", lambda chunks: chunks)
     monkeypatch.setattr(ask_module, "generate_text", lambda prompt: ("answer [1]", "model-x"))
     monkeypatch.setattr(ask_module, "save_trace", lambda *args: saved.update(args=args))
 

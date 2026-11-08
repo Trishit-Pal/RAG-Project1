@@ -118,12 +118,12 @@ def test_ingest_api_skips_a_response_it_has_already_stored(monkeypatch):
 
 
 def test_normalize_makes_vectors_length_one():
-    assert embed._12_normalize([3.0, 4.0]) == [0.6, 0.8]
+    assert embed.normalize([3.0, 4.0]) == [0.6, 0.8]
 
 
 def test_normalize_rejects_an_all_zero_vector():
     with pytest.raises(ValueError):
-        embed._12_normalize([0.0, 0.0])
+        embed.normalize([0.0, 0.0])
 
 
 def test_embed_texts_rejects_an_unknown_task_type():

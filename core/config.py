@@ -1,25 +1,25 @@
+"""Settings: the database address and the Gemini key, read from the .env file.
+
+Every other file gets its settings from here. app.py calls missing_settings()
+first, so a missing setting shows a clear message instead of a crash.
+"""
 import os
-from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
+# Copy the lines of the .env file into the environment, so os.getenv() can read them.
 load_dotenv()
 
+REQUIRED_SETTINGS = ["DATABASE_URL", "GEMINI_API_KEY"]
 
-def _require(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}. Set it in .env")
-    return value
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 
-@dataclass(frozen=True)
-class Settings:
-    DATABASE_URL: str
-    GEMINI_API_KEY: str
-
-
-settings = Settings(
-    DATABASE_URL=_require("DATABASE_URL"),
-    GEMINI_API_KEY=_require("GEMINI_API_KEY"),
-)
+def missing_settings() -> list[str]:
+    """Return the names of required settings that are empty or not set."""
+    missing = []
+    for name in REQUIRED_SETTINGS:
+        if not os.getenv(name, "").strip():
+            missing.append(name)
+    return missing

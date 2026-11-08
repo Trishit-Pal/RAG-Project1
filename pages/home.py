@@ -1,4 +1,4 @@
-"""Home: what the app does, what is stored, and a quick system check."""
+"""Page "Home": what the app does, what is stored, and a quick Gemini check."""
 import streamlit as st
 
 from core.stats import list_documents, overview, recent_questions

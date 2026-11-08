@@ -1,24 +1,28 @@
-"""Save files that people upload in the browser, safely."""
+"""Save files that people upload in the browser, safely.
+
+Used by the Upload page (saving) and the Data page (listing CSV files).
+The upload size limit is set in .streamlit/config.toml; Streamlit refuses
+bigger files before they reach this code.
+"""
 from pathlib import Path
 
 from core.ingest import SUPPORTED_TYPES
 
 UPLOAD_DIR = Path("data/uploads")
-# The size limit lives in .streamlit/config.toml (maxUploadSize). Streamlit
-# refuses bigger files before they reach this code.
 
 
 def save_upload(filename: str, data: bytes, folder: Path = UPLOAD_DIR) -> Path:
-    """Write the uploaded bytes to the upload folder and return the saved path.
+    """Write the uploaded file to the upload folder and return where it was saved.
 
     Raises ValueError with a friendly message if the file should not be accepted.
     """
-    # Path(...).name drops any folders, so "../../x.csv" becomes "x.csv".
+    # .name drops any folder part, so "../../x.csv" becomes "x.csv" and cannot
+    # be written outside the upload folder.
     safe_name = Path(filename).name
-    suffix = Path(safe_name).suffix.lower()
+    extension = Path(safe_name).suffix.lower()
 
-    if suffix not in SUPPORTED_TYPES:
-        raise ValueError(f"'{safe_name}': this file type is not supported (use {', '.join(sorted(SUPPORTED_TYPES))})")
+    if extension not in SUPPORTED_TYPES:
+        raise ValueError(f"'{safe_name}': this file type is not supported (use {', '.join(SUPPORTED_TYPES)})")
     if not data:
         raise ValueError(f"'{safe_name}' is empty")
 
@@ -41,4 +45,3 @@ def list_saved_csvs(folder: Path = UPLOAD_DIR) -> list[Path]:
     if not folder.exists():
         return []
     return sorted(folder.glob("*.csv"))
-

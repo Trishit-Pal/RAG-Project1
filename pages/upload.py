@@ -1,4 +1,7 @@
-"""Add files and API data to the knowledge base."""
+"""Page "Upload": add files and live weather data to the searchable library.
+
+The checking and saving happens in core/ingest.py. This file only shows the form.
+"""
 from pathlib import Path
 
 import streamlit as st

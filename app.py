@@ -12,11 +12,12 @@ st.set_page_config(
     layout="wide",
 )
 
-from utils.ui import missing_settings, show_sidebar  # noqa: E402
+from core.config import missing_settings  # noqa: E402  (imports after set_page_config)
+from utils.ui import show_sidebar  # noqa: E402
 
-problems = missing_settings()
-if problems:
-    st.error(f"Missing settings in your .env file: {', '.join(problems)}")
+missing = missing_settings()
+if missing:
+    st.error(f"Missing settings in your .env file: {', '.join(missing)}")
     st.stop()  # nothing below this line runs
 
 show_sidebar()

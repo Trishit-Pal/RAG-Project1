@@ -94,7 +94,7 @@ Verified when: `/simplify` and `/engineering:code-review` findings are fixed or 
 | Phase | Status |
 | --- | --- |
 | 1 Remove libraries | done: 7 app libraries left, live download + PDF verified |
-| 2 Basic Python | pending |
-| 3 Structure | pending |
+| 2 Basic Python | done: no dataclass/lambda/decorator/filtered one-liners left |
+| 3 Structure | done: vectors.py, logger.py, messages.py merged; 8 empty folders gone; live end-to-end check passed |
 | 4 Reviews | pending |
 | 5 Commit | pending |

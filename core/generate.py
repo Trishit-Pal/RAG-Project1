@@ -7,13 +7,13 @@ import time
 
 from google import genai
 
-from core.config import settings
+from core.config import GEMINI_API_KEY
 
 MAIN_MODEL = "gemini-3.5-flash"
 BACKUP_MODEL = "gemini-2.5-flash-lite"  # used only when the main model is rate-limited
 MAX_TRIES = 3
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 def is_rate_limit(error: Exception) -> bool:

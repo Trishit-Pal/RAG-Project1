@@ -1,6 +1,7 @@
-"""Explore an uploaded CSV with ready-made summaries, charts and filters.
+"""Page "Explore data": summaries, charts and filters for an uploaded CSV.
 
 No AI is used on this page. The numbers come straight from pandas, so they are exact.
+The CSV files come from data/uploads (saved by the Upload page).
 """
 import pandas as pd
 import streamlit as st
@@ -29,7 +30,12 @@ if not files:
     empty_state("No CSV files yet. Upload one first.", "pages/upload.py", "Go to Upload")
     st.stop()
 
-chosen = st.selectbox("Choose a CSV file", files, format_func=lambda p: p.name)
+# Show file names in the list, then look up the full path of the one picked.
+files_by_name = {}
+for path in files:
+    files_by_name[path.name] = path
+chosen_name = st.selectbox("Choose a CSV file", list(files_by_name))
+chosen = files_by_name[chosen_name]
 try:
     df = load_csv(str(chosen), chosen.stat().st_mtime)
 except Exception as err:
@@ -102,7 +108,11 @@ with filter_tab:
     filtered = df
     filter_left, filter_right = st.columns(2)
     with filter_left:
-        categories = [c for c in text_columns if df[c].nunique() <= MAX_FILTER_CHOICES]
+        # Only columns with a short list of different values make good filters.
+        categories = []
+        for column in text_columns:
+            if df[column].nunique() <= MAX_FILTER_CHOICES:
+                categories.append(column)
         if categories:
             category = st.selectbox("Filter by category", categories)
             values = st.multiselect(

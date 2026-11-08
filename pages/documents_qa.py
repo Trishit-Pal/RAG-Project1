@@ -1,4 +1,7 @@
-"""Ask questions about the uploaded documents and see where each answer came from."""
+"""Page "Ask your documents": a chat that answers from your files, with sources.
+
+The answering happens in core/ask.py. This file only shows the chat.
+"""
 import streamlit as st
 
 from core.ask import NOT_FOUND, ask, cited_numbers, clear_answer_cache

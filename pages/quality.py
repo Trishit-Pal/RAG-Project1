@@ -1,4 +1,7 @@
-"""See how good the stored data is, and which files were set aside and why."""
+"""Page "Data quality": how good the stored data is, and which files were set aside and why.
+
+The scores are calculated in core/quality.py when a file is uploaded.
+"""
 import pandas as pd
 import streamlit as st
 
@@ -13,10 +16,8 @@ MEANINGS = {
     "validity": "whether the file passed the upload checks",
 }
 st.write("Every file gets a score from 0 (bad) to 1 (perfect), made of three parts:")
-st.markdown("\n".join(
-    f"- **{name.capitalize()}** ({weight:.0%} of the score): {MEANINGS[name]}"
-    for name, weight in WEIGHTS.items()
-))
+for name, weight in WEIGHTS.items():
+    st.markdown(f"- **{name.capitalize()}** ({weight:.0%} of the score): {MEANINGS[name]}")
 
 try:
     sources = list_sources()
@@ -27,7 +28,11 @@ except Exception as err:
     show_error(err)
     st.stop()
 
-scored = [s for s in sources if s["quality_score"] is not None]
+# Only groups that already have a score.
+scored = []
+for source in sources:
+    if source["quality_score"] is not None:
+        scored.append(source)
 
 summary_tab, runs_tab, quarantine_tab, documents_tab = st.tabs(
     ["Scores", "History", "Set-aside files", "All documents"]
@@ -37,11 +42,13 @@ with summary_tab:
     if not scored:
         st.info("No scores yet. Scores appear after you upload a file.")
     else:
-        average = sum(s["quality_score"] for s in scored) / len(scored)
+        scores = []
+        for source in scored:
+            scores.append(source["quality_score"])
         cells = st.columns(3)
-        cells[0].metric("Average score", f"{average:.2f}")
-        cells[1].metric("Groups scored", len(scored))
-        cells[2].metric("Lowest score", f"{min(s['quality_score'] for s in scored):.2f}")
+        cells[0].metric("Average score", f"{sum(scores) / len(scores):.2f}")
+        cells[1].metric("Groups scored", len(scores))
+        cells[2].metric("Lowest score", f"{min(scores):.2f}")
         chart_data = pd.DataFrame(scored).set_index("name")["quality_score"]
         st.bar_chart(chart_data, y_label="score (1.0 is perfect)")
         st.caption("A low score usually means many empty cells or duplicate rows.")
@@ -72,8 +79,16 @@ with quarantine_tab:
 with documents_tab:
     if documents:
         rows = readable_documents(documents)
-        statuses = sorted({r["Status"] for r in rows})
-        picked = st.multiselect("Show status", statuses, default=statuses)
-        st.dataframe([r for r in rows if r["Status"] in picked], hide_index=True, width="stretch")
+        statuses = []
+        for row in rows:
+            if row["Status"] not in statuses:
+                statuses.append(row["Status"])
+        picked = st.multiselect("Show status", sorted(statuses), default=sorted(statuses))
+
+        shown = []
+        for row in rows:
+            if row["Status"] in picked:
+                shown.append(row)
+        st.dataframe(shown, hide_index=True, width="stretch")
     else:
         st.info("No documents yet.")

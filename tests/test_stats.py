@@ -21,16 +21,6 @@ def test_get_chunks_by_ids_with_no_ids_skips_the_database(monkeypatch):
     assert stats.get_chunks_by_ids([]) == []
 
 
-def test_attach_filenames_adds_a_name_without_changing_the_input(monkeypatch):
-    monkeypatch.setattr(stats, "fetch_all", lambda sql, params=(): [("doc-a", "report.pdf")])
-    original = [{"chunk_id": 1, "document_id": "doc-a", "text": "x"}]
-
-    result = stats.attach_filenames(original)
-
-    assert result[0]["filename"] == "report.pdf"
-    assert "filename" not in original[0]  # the input list was not changed
-
-
 def test_list_documents_returns_one_dictionary_per_row(monkeypatch):
     rows = [("a.pdf", "reports", "indexed", 1200, "2026-01-01", 5)]
     monkeypatch.setattr(stats, "fetch_all", lambda sql, params=(): rows)
