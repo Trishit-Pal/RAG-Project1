@@ -37,8 +37,9 @@ PAGE_FILE_TYPES = {
     ".docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document", parse_docx),
     ".txt": ("text/plain", parse_txt),
 }
-# Every file type the app accepts. The Upload page and save_upload() use this list too.
-SUPPORTED_TYPES = [".csv", ".docx", ".pdf", ".txt"]
+# Every file type the app accepts: CSV plus every page type above, so a new reader
+# added to PAGE_FILE_TYPES is accepted everywhere. The Upload page and save_upload() use it.
+SUPPORTED_TYPES = [".csv"] + sorted(PAGE_FILE_TYPES)
 
 # Live data sources. Open-Meteo needs no key.
 # Free for non-commercial use; attribution is required (https://open-meteo.com/).

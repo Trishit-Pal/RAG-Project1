@@ -10,8 +10,14 @@ from core.embed import embed_texts
 MIN_SIMILARITY = 0.3
 
 
-def retrieve(question: str, k: int = 6, min_quality: float = 0.0, min_similarity: float = MIN_SIMILARITY) -> list[dict]:
-    """Return up to k passages, most similar first, each with its file name."""
+def retrieve(question: str, k: int = 6, min_quality: float = 0.0,
+             min_similarity: float = MIN_SIMILARITY) -> list[dict]:
+    """Return up to k passages, most similar first, each with its file name.
+
+    k: how many passages to return at most.
+    min_quality: skip sources whose quality score is lower than this.
+    min_similarity: skip passages less similar than this.
+    """
     # 1. Turn the question into a vector.
     question_vector = embed_texts([question], task_type="RETRIEVAL_QUERY")[0]
 

@@ -53,3 +53,12 @@ def test_ingest_file_quarantines_a_tiny_docx(tmp_path, monkeypatch):
     monkeypatch.setattr(ingest, "store_quarantined", lambda *args: None)
 
     assert ingest.ingest_file(str(path), "tiny")[0] == "quarantined"
+
+
+def test_every_readable_file_type_is_accepted():
+    # A reader added to PAGE_FILE_TYPES must also be accepted by uploads.
+    from core.ingest import PAGE_FILE_TYPES, SUPPORTED_TYPES
+
+    assert ".csv" in SUPPORTED_TYPES
+    for extension in PAGE_FILE_TYPES:
+        assert extension in SUPPORTED_TYPES
